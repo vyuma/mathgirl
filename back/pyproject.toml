@@ -1,0 +1,9 @@
+[project]
+name = "mathgirl-back"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.128.0",
+    "langchain>=1.2.6",
+    "psycopg[binary]>=3.2.0",
+]
