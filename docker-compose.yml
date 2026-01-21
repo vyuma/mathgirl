@@ -11,6 +11,8 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:${BACK_PORT}
       - PORT=${FRONT_PORT}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: bun run dev --port ${FRONT_PORT}
     depends_on:
       - back

@@ -1,0 +1,116 @@
+import asyncio
+import base64
+from typing import AsyncGenerator
+
+from src.model.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
+from src.aiagent.original_chat import AliceAgent
+from .coeiroink_client import CoeiroinkClient
+
+
+class StreamingTTS:
+    """
+    ストリーミングTTSオーケストレーター
+
+    LLMからの文単位出力を受け取り、並列でTTS処理を行い、
+    順序を保証しながらテキストと音声を配信する
+    """
+
+    def __init__(
+        self,
+        agent: AliceAgent | None = None,
+        tts_client: CoeiroinkClient | None = None,
+    ):
+        self.agent = agent or AliceAgent()
+        self.tts_client = tts_client or CoeiroinkClient()
+
+    async def stream_chat_with_audio(
+        self,
+        messages: list[ChatMessage],
+        goal: str | None,
+        speaker_uuid: str,
+        style_id: int = 0,
+    ) -> AsyncGenerator[WSMessage, None]:
+        """
+        チャット応答と音声をストリーミング配信
+
+        テキストチャンクは即座に送信し、音声は並列処理後に順序保証で送信
+
+        Args:
+            messages: チャット履歴
+            goal: 今日の目標
+            speaker_uuid: スピーカーUUID
+            style_id: スタイルID
+
+        Yields:
+            TextChunk, AudioChunk, または CompleteMessage
+        """
+        # TTS処理用のタスクキュー
+        tts_tasks: dict[int, asyncio.Task[bytes]] = {}
+        full_text_parts: list[str] = []
+        next_audio_index = 0
+        audio_results: dict[int, bytes] = {}
+
+        # LLMからの文単位ストリーミングを処理
+        async for index, text, is_partial in self.agent.stream_sentences(messages, goal):
+            full_text_parts.append(text)
+
+            # テキストチャンクを即座に送信
+            yield TextChunk(index=index, text=text, is_partial=is_partial)
+
+            # TTS処理を非同期で開始
+            tts_task = asyncio.create_task(
+                self._synthesize_audio(text, speaker_uuid, style_id)
+            )
+            tts_tasks[index] = tts_task
+
+            # 完了したTTS結果があれば順序通りに送信
+            while next_audio_index in tts_tasks:
+                task = tts_tasks[next_audio_index]
+                if task.done():
+                    try:
+                        audio_data = task.result()
+                        audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+                        yield AudioChunk(index=next_audio_index, audio_base64=audio_base64)
+                    except Exception as e:
+                        # TTS失敗時はスキップ（ログは残す）
+                        print(f"TTS failed for index {next_audio_index}: {e}")
+
+                    del tts_tasks[next_audio_index]
+                    next_audio_index += 1
+                else:
+                    break
+
+        # 残りのTTS結果を順序通りに送信
+        while tts_tasks:
+            if next_audio_index in tts_tasks:
+                task = tts_tasks[next_audio_index]
+                try:
+                    audio_data = await task
+                    audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+                    yield AudioChunk(index=next_audio_index, audio_base64=audio_base64)
+                except Exception as e:
+                    print(f"TTS failed for index {next_audio_index}: {e}")
+
+                del tts_tasks[next_audio_index]
+                next_audio_index += 1
+            else:
+                # 次のインデックスがまだ登録されていない場合は少し待つ
+                await asyncio.sleep(0.01)
+
+        # 完了メッセージを送信
+        full_text = "".join(full_text_parts)
+        yield CompleteMessage(full_text=full_text)
+
+    async def _synthesize_audio(
+        self, text: str, speaker_uuid: str, style_id: int
+    ) -> bytes:
+        """音声合成を実行"""
+        return await self.tts_client.synthesize(
+            text=text,
+            speaker_uuid=speaker_uuid,
+            style_id=style_id,
+        )
+
+    async def close(self):
+        """リソースをクリーンアップ"""
+        await self.tts_client.close()
