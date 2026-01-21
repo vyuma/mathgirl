@@ -10,6 +10,7 @@ services:
       - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:${BACK_PORT}
+      - NEXT_PUBLIC_WS_URL=ws://localhost:${BACK_PORT}/ws/chat
       - PORT=${FRONT_PORT}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -28,6 +29,10 @@ services:
       - /app/.venv
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - COEIROINK_API_URL=http://host.docker.internal:50032
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: uv run fastapi dev src/main.py --host 0.0.0.0 --port ${BACK_PORT}
     depends_on:
       db:

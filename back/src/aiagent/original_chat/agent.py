@@ -4,25 +4,36 @@ from typing import AsyncGenerator
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.model.chat import ChatMessage
+from model.chat import ChatMessage
 from .prompt import ALICE_SYSTEM_PROMPT
 from .sentence_splitter import SentenceSplitter
+
+
+# シングルトンLLMインスタンス（接続の再利用で高速化）
+_llm_instance: ChatGoogleGenerativeAI | None = None
+
+
+def _get_llm(model_name: str = "gemini-2.5-flash-lite") -> ChatGoogleGenerativeAI:
+    """LLMインスタンスを取得（シングルトン）"""
+    global _llm_instance
+    if _llm_instance is None:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is required")
+
+        _llm_instance = ChatGoogleGenerativeAI(
+            model=model_name,
+            google_api_key=api_key,
+            temperature=0.7,
+        )
+    return _llm_instance
 
 
 class AliceAgent:
     """アリス用AIエージェント（LangChain + Gemini）"""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash-preview-05-20"):
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is required")
-
-        self.llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=api_key,
-            temperature=0.7,
-            max_output_tokens=256,
-        )
+    def __init__(self, model_name: str = "gemini-2.0-flash"):
+        self.llm = _get_llm(model_name)
         self.sentence_splitter = SentenceSplitter()
 
     def _build_messages(

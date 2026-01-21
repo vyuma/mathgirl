@@ -1,6 +1,6 @@
 import os
 import httpx
-from src.model.speaker import Speaker, SpeakerStyle
+from model.speaker import Speaker, SpeakerStyle
 
 
 class CoeiroinkClient:

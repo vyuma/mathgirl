@@ -1,4 +1,4 @@
-from .chat import ChatMessage, ChatRequest, WSMessage, TextChunk, AudioChunk, CompleteMessage
+from .chat import ChatMessage, ChatRequest, WSMessage, TextChunk, AudioChunk, CompleteMessage, ErrorMessage
 from .speaker import Speaker, SpeakerStyle
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     "TextChunk",
     "AudioChunk",
     "CompleteMessage",
+    "ErrorMessage",
     "Speaker",
     "SpeakerStyle",
 ]

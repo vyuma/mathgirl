@@ -1,9 +1,10 @@
+
 import asyncio
 import base64
 from typing import AsyncGenerator
 
-from src.model.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
-from src.aiagent.original_chat import AliceAgent
+from model.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
+from aiagent.original_chat import AliceAgent
 from .coeiroink_client import CoeiroinkClient
 
 
@@ -48,7 +49,6 @@ class StreamingTTS:
         tts_tasks: dict[int, asyncio.Task[bytes]] = {}
         full_text_parts: list[str] = []
         next_audio_index = 0
-        audio_results: dict[int, bytes] = {}
 
         # LLMからの文単位ストリーミングを処理
         async for index, text, is_partial in self.agent.stream_sentences(messages, goal):

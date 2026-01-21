@@ -6,7 +6,16 @@ import VRMChat from "@/components/VRMChat";
 import { useSpeechRecognition } from "@/lib/stt";
 import BackIcon from "@/components/icon/back";
 import { useCoeiroink, type Speaker } from "@/lib/tts/useCoeiroink";
-
+import {
+  useChatWebSocket,
+  type ChatMessage,
+  type TextChunk,
+  type AudioChunk,
+  type CompleteMessage,
+} from "@/lib/websocket";
+import { useStreamingAudio } from "@/lib/audio";
+import { useAizuchi } from "@/lib/aizuchi";
+import { useTurnTaking, type TurnTakingPrediction } from "@/lib/turntaking";
 
 type Message = {
   role: "user" | "assistant";
@@ -24,16 +33,86 @@ export default function ChatPage() {
   const [showSpeakerSelector, setShowSpeakerSelector] = useState(false);
   const [isLoadingSpeakers, setIsLoadingSpeakers] = useState(true);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [streamingText, setStreamingText] = useState<string>("");
+  const [displayedText, setDisplayedText] = useState<string>(""); // タイプライター用
+  const [currentPlayingIndex, setCurrentPlayingIndex] = useState<number>(-1); // 現在再生中の文のインデックス
   const hasGreetedRef = useRef(false);
+  const textChunksRef = useRef<Map<number, string>>(new Map());
+  const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // クライアントサイドでCOEIROINKに直接アクセス
+  // クライアントサイドでCOEIROINKに直接アクセス（スピーカー一覧用）
   const {
     speakers,
     error: speakerError,
     getSpeakers,
     synthesizeSpeech,
   } = useCoeiroink();
+
+  // ストリーミング音声再生
+  const {
+    isPlaying,
+    initAudio,
+    addAudioChunk,
+    reset: resetAudio,
+  } = useStreamingAudio({
+    onSentenceStart: () => {
+      setIsSpeaking(true);
+    },
+    onSentenceEnd: () => {
+      // 再生が続いているかどうかは isPlaying で判断
+    },
+  });
+
+  // WebSocketハンドラー
+  const handleTextChunk = useCallback((chunk: TextChunk) => {
+    textChunksRef.current.set(chunk.index, chunk.text);
+
+    // インデックス順にテキストを結合
+    const sortedTexts: string[] = [];
+    for (let i = 0; i <= chunk.index; i++) {
+      const text = textChunksRef.current.get(i);
+      if (text) sortedTexts.push(text);
+    }
+    setStreamingText(sortedTexts.join(""));
+  }, []);
+
+  const handleAudioChunk = useCallback(
+    (chunk: AudioChunk) => {
+      addAudioChunk(chunk.index, chunk.audio_base64);
+    },
+    [addAudioChunk]
+  );
+
+  const handleComplete = useCallback((message: CompleteMessage) => {
+    // ストリーミングテキストをメッセージに追加
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: message.full_text },
+    ]);
+    setStreamingText("");
+    textChunksRef.current.clear();
+  }, []);
+
+  const handleWsError = useCallback((error: string) => {
+    console.error("WebSocket error:", error);
+    setStreamingText("");
+    textChunksRef.current.clear();
+  }, []);
+
+  // WebSocket接続
+  const {
+    connectionState,
+    isProcessing,
+    connect,
+    disconnect,
+    sendChatRequest,
+    isConnected,
+  } = useChatWebSocket({
+    onTextChunk: handleTextChunk,
+    onAudioChunk: handleAudioChunk,
+    onComplete: handleComplete,
+    onError: handleWsError,
+  });
 
   const {
     isListening,
@@ -52,7 +131,62 @@ export default function ChatPage() {
   // 無音検出用のタイマー
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef<string>("");
-  const SILENCE_THRESHOLD_MS = 2500; // 3.5秒
+  const DEFAULT_SILENCE_THRESHOLD_MS = 1500;
+  const suggestedWaitMsRef = useRef<number>(DEFAULT_SILENCE_THRESHOLD_MS);
+
+  // 相槌フック
+  const styleId = selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
+  const {
+    hasAizuchi,
+    prefetchAizuchi,
+    playAizuchi,
+    reset: resetAizuchi,
+  } = useAizuchi({
+    speakerUuid: selectedSpeaker?.speaker_uuid ?? "",
+    styleId,
+    minTextLength: 8, // 8文字以上で相槌準備開始
+    useLLM: false, // 高速化のため定型相槌を使用
+    onAizuchiPlay: () => {
+      setIsSpeaking(true);
+    },
+    onAizuchiEnd: () => {
+      // 相槌再生完了（この後メイン応答が続く）
+    },
+  });
+
+  // ターンテイキング予測フック
+  const handleTurnTakingPrediction = useCallback((prediction: TurnTakingPrediction) => {
+    // 予測結果に基づいて待機時間を更新
+    suggestedWaitMsRef.current = prediction.suggested_wait_ms;
+  }, []);
+
+  const {
+    isConnected: isTurnTakingConnected,
+    isVapAvailable,
+    prediction: turnTakingPrediction,
+    isRecording: isTurnTakingRecording,
+    startRecording: startTurnTakingRecording,
+    stopRecording: stopTurnTakingRecording,
+    reset: resetTurnTaking,
+  } = useTurnTaking({
+    enabled: hasUserInteracted,
+    onPrediction: handleTurnTakingPrediction,
+  });
+
+  // isPlayingの変化を追跡（音声再生完了後にリスニング再開）
+  useEffect(() => {
+    if (!isPlaying && isSpeaking) {
+      // 再生完了時
+      setIsSpeaking(false);
+      // 発話終了後に自動でリスニングを開始
+      startListening();
+      // ターンテイキング録音も開始
+      if (isTurnTakingConnected) {
+        resetTurnTaking();
+        startTurnTakingRecording();
+      }
+    }
+  }, [isPlaying, isSpeaking, isTurnTakingConnected, startTurnTakingRecording, resetTurnTaking, startListening]);
 
   // スピーカー一覧を取得
   useEffect(() => {
@@ -68,7 +202,8 @@ export default function ChatPage() {
     loadSpeakers();
   }, [getSpeakers]);
 
-  const speakText = useCallback(
+  // フォールバック用のspeak関数（WebSocket未接続時）
+  const speakTextFallback = useCallback(
     async (text: string) => {
       if (!selectedSpeaker) {
         console.error("Speaker not selected");
@@ -78,44 +213,48 @@ export default function ChatPage() {
       setIsSpeaking(true);
 
       try {
-        // クライアントから直接COEIROINKを呼び出し
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
         const styleId = selectedSpeaker.styles[selectedStyleIndex]?.id ?? 0;
-        const audioBlob = await synthesizeSpeech(
-          text,
-          selectedSpeaker.speaker_uuid,
-          styleId
-        );
 
-        if (!audioBlob) {
-          console.error("Failed to get audio data");
+        const response = await fetch(`${apiUrl}/api/synthesis`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text,
+            speaker_uuid: selectedSpeaker.speaker_uuid,
+            style_id: styleId,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("Failed to synthesize audio:", response.status);
           setIsSpeaking(false);
           return;
         }
 
+        const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
 
-        if (audioRef.current) {
-          audioRef.current.src = audioUrl;
-          audioRef.current.onended = () => {
-            setIsSpeaking(false);
-            URL.revokeObjectURL(audioUrl);
-            // 発話終了後に自動でリスニングを開始
-            startListening();
-          };
-          audioRef.current.onerror = () => {
-            setIsSpeaking(false);
-            URL.revokeObjectURL(audioUrl);
-            // エラー時も自動でリスニングを開始
-            startListening();
-          };
-          await audioRef.current.play();
-        }
+        audio.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          startListening();
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+          startListening();
+        };
+        await audio.play();
       } catch (error) {
         console.error("TTS Error:", error);
         setIsSpeaking(false);
       }
     },
-    [selectedSpeaker, selectedStyleIndex, synthesizeSpeech, startListening]
+    [selectedSpeaker, selectedStyleIndex, startListening]
   );
 
   // ユーザー操作後に挨拶を再生
@@ -138,71 +277,156 @@ export default function ChatPage() {
 
     setMessages([{ role: "assistant", content: greetingText }]);
 
+    // 挨拶はフォールバックで再生（初回のみ）
     setTimeout(() => {
-      speakText(greetingText);
+      speakTextFallback(greetingText);
     }, 500);
-  }, [selectedSpeaker, speakText, hasUserInteracted]);
+  }, [selectedSpeaker, speakTextFallback, hasUserInteracted]);
 
   // 開始ボタンクリック時の処理
   const handleStart = useCallback(() => {
     setHasUserInteracted(true);
-  }, []);
+    initAudio();
+    connect();
+    // ターンテイキングは自動接続（enabled: hasUserInteractedで制御）
+  }, [initAudio, connect]);
 
   const handleSend = useCallback(async () => {
     const userText = transcript.trim();
     if (!userText) return;
+    if (!selectedSpeaker) return;
 
     const newUserMessage: Message = { role: "user", content: userText };
     setMessages((prev) => [...prev, newUserMessage]);
     clearTranscript();
     stopListening();
+    stopTurnTakingRecording();
+    resetAudio();
+    suggestedWaitMsRef.current = DEFAULT_SILENCE_THRESHOLD_MS; // リセット
 
-    try {
-      // 目標を取得
-      const goal = sessionStorage.getItem("todayGoal") || undefined;
-
-      // APIを呼び出してAI応答を取得
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [...messages, newUserMessage],
-          goal,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("API Error:", response.status, errorData);
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const responseText = data.content;
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: responseText },
-      ]);
-      speakText(responseText);
-    } catch (error) {
-      console.error("Chat API Error:", error);
-      // エラー時はフォールバックメッセージ
-      const fallbackText = "ごめんね、うまく聞き取れなかったみたい。もう一度言ってくれる？";
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: fallbackText },
-      ]);
-      speakText(fallbackText);
+    // 相槌を再生（0.25秒後に再生開始）
+    if (hasAizuchi) {
+      await playAizuchi(250);
     }
-  }, [transcript, clearTranscript, stopListening, speakText, messages]);
 
-  // 無音検出: transcriptまたはinterimTranscriptが3.5秒間変化しなかったら自動送信
+    // 相槌をリセット（次回用）
+    resetAizuchi();
+
+    setIsSpeaking(true);
+
+    // 目標を取得
+    const goal = sessionStorage.getItem("todayGoal") || undefined;
+
+    // WebSocket経由でリクエスト送信
+    if (isConnected) {
+      const chatMessages: ChatMessage[] = [...messages, newUserMessage].map(
+        (m) => ({
+          role: m.role,
+          content: m.content,
+        })
+      );
+
+      const currentStyleId = selectedSpeaker.styles[selectedStyleIndex]?.id ?? 0;
+      const success = sendChatRequest(
+        chatMessages,
+        selectedSpeaker.speaker_uuid,
+        currentStyleId,
+        goal
+      );
+
+      if (!success) {
+        // WebSocket送信失敗時はフォールバック
+        await fallbackSend(newUserMessage, goal);
+      }
+    } else {
+      // WebSocket未接続時はフォールバック
+      await fallbackSend(newUserMessage, goal);
+    }
+  }, [
+    transcript,
+    clearTranscript,
+    stopListening,
+    stopTurnTakingRecording,
+    messages,
+    selectedSpeaker,
+    selectedStyleIndex,
+    isConnected,
+    sendChatRequest,
+    resetAudio,
+    hasAizuchi,
+    playAizuchi,
+    resetAizuchi,
+  ]);
+
+  // フォールバック: バックエンドAPI経由
+  const fallbackSend = useCallback(
+    async (newUserMessage: Message, goal?: string) => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const response = await fetch(`${apiUrl}/api/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [...messages, newUserMessage],
+            goal,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const responseText = data.content;
+
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: responseText },
+        ]);
+        await speakTextFallback(responseText);
+      } catch (error) {
+        console.error("Chat API Error:", error);
+        const fallbackText =
+          "ごめんね、うまく聞き取れなかったみたい。もう一度言ってくれる？";
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: fallbackText },
+        ]);
+        await speakTextFallback(fallbackText);
+      }
+    },
+    [messages, speakTextFallback]
+  );
+
+  // 相槌のプリフェッチ（ユーザーが話し始めたら、またはVAPがp_future高を検出したら）
   useEffect(() => {
-    // リスニング中でない場合、または発話中の場合はタイマーをクリア
-    if (!isListening || isSpeaking) {
+    if (!isListening || !selectedSpeaker) return;
+
+    const textLength = transcript.trim().length;
+
+    // 通常のテキスト長ベースのプリフェッチ（8文字以上）
+    if (textLength >= 8) {
+      prefetchAizuchi(transcript);
+      return;
+    }
+
+    // VAP予測ベースの早期プリフェッチ
+    // p_futureが高い場合、ユーザーが発話を終えようとしている
+    // この場合、テキストが短くても相槌を準備する
+    if (turnTakingPrediction && textLength >= 3) {
+      const { p_future, confidence } = turnTakingPrediction;
+      // p_futureが0.4以上かつ信頼度が高い場合は早期プリフェッチ
+      if (p_future >= 0.4 && confidence >= 0.3) {
+        prefetchAizuchi(transcript);
+      }
+    }
+  }, [transcript, isListening, selectedSpeaker, prefetchAizuchi, turnTakingPrediction]);
+
+  // 無音検出: transcriptまたはinterimTranscriptが一定時間変化しなかったら自動送信
+  useEffect(() => {
+    if (!isListening || isSpeaking || isProcessing) {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -213,7 +437,6 @@ export default function ChatPage() {
 
     const currentTranscript = transcript + interimTranscript;
 
-    // transcriptが空の場合はタイマーを開始しない
     if (!transcript.trim()) {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
@@ -223,24 +446,26 @@ export default function ChatPage() {
       return;
     }
 
-    // transcriptが変化した場合、タイマーをリセットして再開始
     if (currentTranscript !== lastTranscriptRef.current) {
       lastTranscriptRef.current = currentTranscript;
 
-      // 既存のタイマーをクリア
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
     }
 
-    // タイマーが動いていない場合は開始
     if (!silenceTimerRef.current && transcript.trim()) {
+      // ターンテイキング予測に基づく待機時間を使用
+      // VAP予測が有効な場合は動的な待機時間、無効な場合はデフォルト
+      const waitMs = isVapAvailable
+        ? suggestedWaitMsRef.current
+        : DEFAULT_SILENCE_THRESHOLD_MS;
+
       silenceTimerRef.current = setTimeout(() => {
-        // 3.5秒間変化がなかった場合、自動送信
         handleSend();
         silenceTimerRef.current = null;
-      }, SILENCE_THRESHOLD_MS);
+      }, waitMs);
     }
 
     return () => {
@@ -249,10 +474,19 @@ export default function ChatPage() {
         silenceTimerRef.current = null;
       }
     };
-  }, [transcript, interimTranscript, isListening, isSpeaking, handleSend]);
+  }, [
+    transcript,
+    interimTranscript,
+    isListening,
+    isSpeaking,
+    isProcessing,
+    handleSend,
+  ]);
 
   const handleBack = () => {
     sessionStorage.removeItem("todayGoal");
+    stopTurnTakingRecording();
+    disconnect();
     router.push("/home");
   };
 
@@ -266,6 +500,20 @@ export default function ChatPage() {
 
   const handleStyleChange = (styleIndex: number) => {
     setSelectedStyleIndex(styleIndex);
+  };
+
+  // 接続状態の表示テキスト
+  const getConnectionStatusText = () => {
+    switch (connectionState) {
+      case "connecting":
+        return "接続中...";
+      case "connected":
+        return "接続済み";
+      case "error":
+        return "接続エラー";
+      default:
+        return "未接続";
+    }
   };
 
   return (
@@ -324,6 +572,34 @@ export default function ChatPage() {
               {selectedSpeaker.name}
               {selectedSpeaker.styles.length > 1 &&
                 ` - ${selectedSpeaker.styles[selectedStyleIndex]?.name}`}
+            </span>
+          )}
+
+          {/* WebSocket接続状態 */}
+          <span
+            className={`text-xs px-2 py-1 rounded-full ${
+              connectionState === "connected"
+                ? "bg-green-100 text-green-700"
+                : connectionState === "error"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {getConnectionStatusText()}
+          </span>
+
+          {/* ターンテイキング状態 */}
+          {isTurnTakingConnected && (
+            <span
+              className={`text-xs px-2 py-1 rounded-full ${
+                isVapAvailable
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+              title={isVapAvailable ? "VAP予測有効" : "VAP無効（フォールバック）"}
+            >
+              {isVapAvailable ? "VAP" : "FB"}
+              {turnTakingPrediction && ` ${turnTakingPrediction.suggested_wait_ms}ms`}
             </span>
           )}
         </div>
@@ -409,6 +685,14 @@ export default function ChatPage() {
                 {msg.content}
               </div>
             ))}
+
+            {/* ストリーミング中のテキスト */}
+            {streamingText && (
+              <div className="p-3 rounded-2xl max-w-[80%] bg-amber-100/90 text-amber-900 self-start">
+                {streamingText}
+                <span className="animate-pulse">▌</span>
+              </div>
+            )}
           </div>
 
           {(transcript || interimTranscript) && (
@@ -424,7 +708,7 @@ export default function ChatPage() {
               className={`p-3 rounded-full ${
                 isListening
                   ? "bg-red-500 animate-pulse"
-                  : isSpeaking
+                  : isSpeaking || isProcessing
                     ? "bg-amber-500"
                     : "bg-gray-300"
               }`}
@@ -448,19 +732,29 @@ export default function ChatPage() {
                   ? "COEIROINKに接続できません"
                   : !selectedSpeaker
                     ? "スピーカーを選択してください"
-                    : isSpeaking
-                      ? "話し中..."
-                      : isListening
-                        ? "話しかけてね..."
-                        : "準備中..."}
+                    : isProcessing
+                      ? "応答生成中..."
+                      : isSpeaking
+                        ? "話し中..."
+                        : isListening
+                          ? "話しかけてね..."
+                          : "準備中..."}
             </div>
 
             {/* 送信ボタン */}
             <button
               onClick={handleSend}
-              disabled={!transcript.trim() || isSpeaking || !selectedSpeaker}
+              disabled={
+                !transcript.trim() ||
+                isSpeaking ||
+                isProcessing ||
+                !selectedSpeaker
+              }
               className={`p-3 rounded-full bg-amber-500 text-white transition ${
-                !transcript.trim() || isSpeaking || !selectedSpeaker
+                !transcript.trim() ||
+                isSpeaking ||
+                isProcessing ||
+                !selectedSpeaker
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:bg-amber-600"
               }`}
@@ -484,8 +778,6 @@ export default function ChatPage() {
           )}
         </div>
       </div>
-
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
