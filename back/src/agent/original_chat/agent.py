@@ -32,7 +32,7 @@ def _get_llm(model_name: str = "gemini-2.5-flash-lite") -> ChatGoogleGenerativeA
 class AliceAgent:
     """アリス用AIエージェント（LangChain + Gemini）"""
 
-    def __init__(self, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, model_name: str = "gemini-2.5-flash-lite"):
         self.llm = _get_llm(model_name)
         self.sentence_splitter = SentenceSplitter()
 

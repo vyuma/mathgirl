@@ -4,7 +4,7 @@ import base64
 from typing import AsyncGenerator
 
 from model.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
-from aiagent.original_chat import AliceAgent
+from agent.original_chat import AliceAgent
 from .coeiroink_client import CoeiroinkClient
 
 
