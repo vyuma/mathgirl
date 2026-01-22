@@ -55,11 +55,15 @@ export default function ChatPage() {
     addAudioChunk,
     reset: resetAudio,
   } = useStreamingAudio({
-    onSentenceStart: () => {
+    onSentenceStart: (index: number) => {
       setIsSpeaking(true);
+      setCurrentPlayingIndex(index);
+      setDisplayedText(""); // 新しい文の開始時にリセット
     },
-    onSentenceEnd: () => {
-      // 再生が続いているかどうかは isPlaying で判断
+    onSentenceEnd: (index: number) => {
+      // 文の再生完了時、その文の全テキストを表示済みとしてマーク
+      const completedText = textChunksRef.current.get(index) || "";
+      setDisplayedText(completedText);
     },
   });
 
@@ -85,17 +89,21 @@ export default function ChatPage() {
 
   const handleComplete = useCallback((message: CompleteMessage) => {
     // ストリーミングテキストをメッセージに追加
-    setMessages((prev) => [
+    setMessages((prev: Message[]) => [
       ...prev,
       { role: "assistant", content: message.full_text },
     ]);
     setStreamingText("");
+    setCurrentPlayingIndex(-1);
+    setDisplayedText("");
     textChunksRef.current.clear();
   }, []);
 
   const handleWsError = useCallback((error: string) => {
     console.error("WebSocket error:", error);
     setStreamingText("");
+    setCurrentPlayingIndex(-1);
+    setDisplayedText("");
     textChunksRef.current.clear();
   }, []);
 
@@ -173,11 +181,21 @@ export default function ChatPage() {
     onPrediction: handleTurnTakingPrediction,
   });
 
+  // マイクミュート: キャラクター発話中はマイクをオフ
+  useEffect(() => {
+    if (isSpeaking && isListening) {
+      stopListening();
+      stopTurnTakingRecording();
+    }
+  }, [isSpeaking, isListening, stopListening, stopTurnTakingRecording]);
+
   // isPlayingの変化を追跡（音声再生完了後にリスニング再開）
   useEffect(() => {
     if (!isPlaying && isSpeaking) {
       // 再生完了時
       setIsSpeaking(false);
+      setCurrentPlayingIndex(-1);
+      setDisplayedText("");
       // 発話終了後に自動でリスニングを開始
       startListening();
       // ターンテイキング録音も開始
@@ -187,6 +205,41 @@ export default function ChatPage() {
       }
     }
   }, [isPlaying, isSpeaking, isTurnTakingConnected, startTurnTakingRecording, resetTurnTaking, startListening]);
+
+  // タイプライター効果: 音声再生と文字表示の同期
+  useEffect(() => {
+    if (currentPlayingIndex < 0) return;
+
+    const currentText = textChunksRef.current.get(currentPlayingIndex) || "";
+    if (displayedText.length >= currentText.length) return;
+
+    // タイプライターインターバルをクリア
+    if (typewriterIntervalRef.current) {
+      clearInterval(typewriterIntervalRef.current);
+    }
+
+    // 約80msごとに1文字ずつ表示
+    typewriterIntervalRef.current = setInterval(() => {
+      setDisplayedText((prev: string) => {
+        const target = textChunksRef.current.get(currentPlayingIndex) || "";
+        if (prev.length >= target.length) {
+          if (typewriterIntervalRef.current) {
+            clearInterval(typewriterIntervalRef.current);
+            typewriterIntervalRef.current = null;
+          }
+          return prev;
+        }
+        return target.slice(0, prev.length + 1);
+      });
+    }, 80);
+
+    return () => {
+      if (typewriterIntervalRef.current) {
+        clearInterval(typewriterIntervalRef.current);
+        typewriterIntervalRef.current = null;
+      }
+    };
+  }, [currentPlayingIndex, displayedText.length]);
 
   // スピーカー一覧を取得
   useEffect(() => {
@@ -297,21 +350,23 @@ export default function ChatPage() {
     if (!selectedSpeaker) return;
 
     const newUserMessage: Message = { role: "user", content: userText };
-    setMessages((prev) => [...prev, newUserMessage]);
+    setMessages((prev: Message[]) => [...prev, newUserMessage]);
     clearTranscript();
+
+    // 1. まずマイクを止める
     stopListening();
     stopTurnTakingRecording();
     resetAudio();
     suggestedWaitMsRef.current = DEFAULT_SILENCE_THRESHOLD_MS; // リセット
 
-    // 相槌を再生（0.25秒後に再生開始）
+    // 2. 相槌再生中もisSpeakingをtrueにしてマイクをミュート
     if (hasAizuchi) {
-      await playAizuchi(250);
+      setIsSpeaking(true);
+      await playAizuchi(100); // 相槌の完了を待つ（短めの遅延）
     }
 
-    // 相槌をリセット（次回用）
+    // 3. 相槌完了後にLLM応答を開始
     resetAizuchi();
-
     setIsSpeaking(true);
 
     // 目標を取得
@@ -381,7 +436,7 @@ export default function ChatPage() {
         const data = await response.json();
         const responseText = data.content;
 
-        setMessages((prev) => [
+        setMessages((prev: Message[]) => [
           ...prev,
           { role: "assistant", content: responseText },
         ]);
@@ -390,7 +445,7 @@ export default function ChatPage() {
         console.error("Chat API Error:", error);
         const fallbackText =
           "ごめんね、うまく聞き取れなかったみたい。もう一度言ってくれる？";
-        setMessages((prev) => [
+        setMessages((prev: Message[]) => [
           ...prev,
           { role: "assistant", content: fallbackText },
         ]);
@@ -491,7 +546,7 @@ export default function ChatPage() {
   };
 
   const handleSpeakerChange = (speakerUuid: string) => {
-    const speaker = speakers.find((s) => s.speaker_uuid === speakerUuid);
+    const speaker = speakers.find((s: Speaker) => s.speaker_uuid === speakerUuid);
     if (speaker) {
       setSelectedSpeaker(speaker);
       setSelectedStyleIndex(0);
@@ -686,11 +741,33 @@ export default function ChatPage() {
               </div>
             ))}
 
-            {/* ストリーミング中のテキスト */}
+            {/* ストリーミング中のテキスト（タイプライター効果） */}
             {streamingText && (
               <div className="p-3 rounded-2xl max-w-[80%] bg-amber-100/90 text-amber-900 self-start">
-                {streamingText}
-                <span className="animate-pulse">▌</span>
+                {/* 再生済みの文を表示 */}
+                {currentPlayingIndex >= 0 && (
+                  <>
+                    {(Array.from(textChunksRef.current.entries()) as [number, string][])
+                      .filter(([idx]: [number, string]) => idx < currentPlayingIndex)
+                      .sort(([a]: [number, string], [b]: [number, string]) => a - b)
+                      .map(([, text]: [number, string]) => text)
+                      .join("")}
+                  </>
+                )}
+                {/* 現在再生中の文（タイプライター効果） */}
+                {currentPlayingIndex >= 0 && (
+                  <span>
+                    {displayedText}
+                    <span className="animate-pulse">▌</span>
+                  </span>
+                )}
+                {/* 音声再生待ちのテキスト（currentPlayingIndex < 0 の時、または受信済みで未再生の分） */}
+                {currentPlayingIndex < 0 && (
+                  <>
+                    {streamingText}
+                    <span className="animate-pulse">▌</span>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -712,6 +789,7 @@ export default function ChatPage() {
                     ? "bg-amber-500"
                     : "bg-gray-300"
               }`}
+              title={isSpeaking ? "マイクミュート中" : isListening ? "リスニング中" : "準備中"}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -720,10 +798,39 @@ export default function ChatPage() {
                 viewBox="0 0 24 24"
                 fill="white"
               >
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                {isSpeaking ? (
+                  // ミュートアイコン
+                  <>
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                    <line x1="2" y1="2" x2="22" y2="22" stroke="white" strokeWidth="2" />
+                  </>
+                ) : (
+                  // 通常マイクアイコン
+                  <>
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                  </>
+                )}
               </svg>
             </div>
+
+            {/* FBタイム表示 - 待機時間のリアルタイム可視化 */}
+            {isListening && turnTakingPrediction && (
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-purple-600 font-mono">
+                  {turnTakingPrediction.suggested_wait_ms}ms
+                </div>
+                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 transition-all duration-200"
+                    style={{
+                      width: `${Math.min(100, (1 - turnTakingPrediction.p_now) * 100)}%`
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 text-gray-600 text-sm">
               {isLoadingSpeakers
