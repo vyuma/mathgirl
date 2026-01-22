@@ -28,7 +28,11 @@ export class AudioQueue {
    */
   init(): void {
     if (!this.audioContext) {
+      console.log("AudioQueue.init: Creating new AudioContext");
       this.audioContext = new AudioContext();
+      console.log("AudioQueue.init: AudioContext created, state:", this.audioContext.state);
+    } else {
+      console.log("AudioQueue.init: AudioContext already exists, state:", this.audioContext.state);
     }
   }
 
@@ -36,6 +40,8 @@ export class AudioQueue {
    * Base64エンコードされた音声データをキューに追加
    */
   async addAudio(index: number, audioBase64: string): Promise<void> {
+    console.log(`AudioQueue: Adding audio chunk ${index}, base64 length: ${audioBase64.length}`);
+
     // Base64をArrayBufferに変換
     const binaryString = atob(audioBase64);
     const bytes = new Uint8Array(binaryString.length);
@@ -43,6 +49,7 @@ export class AudioQueue {
       bytes[i] = binaryString.charCodeAt(i);
     }
     const audioData = bytes.buffer;
+    console.log(`AudioQueue: Decoded audio chunk ${index}, size: ${audioData.byteLength} bytes`);
 
     this.queue.set(index, audioData);
 
@@ -86,35 +93,50 @@ export class AudioQueue {
    * 音声データを再生
    */
   private async playAudio(audioData: ArrayBuffer): Promise<void> {
+    console.log("AudioQueue: playAudio called, data size:", audioData.byteLength);
+
     if (!this.audioContext) {
+      console.log("AudioQueue: Initializing AudioContext");
       this.init();
     }
 
     const context = this.audioContext!;
+    console.log("AudioQueue: AudioContext state:", context.state);
 
     // AudioContextがsuspended状態の場合はresumeする
     if (context.state === "suspended") {
+      console.log("AudioQueue: Resuming suspended AudioContext");
       await context.resume();
     }
 
-    // ArrayBufferをデコード
-    const audioBuffer = await context.decodeAudioData(audioData.slice(0));
+    try {
+      // ArrayBufferをデコード
+      console.log("AudioQueue: Decoding audio data...");
+      const audioBuffer = await context.decodeAudioData(audioData.slice(0));
+      console.log("AudioQueue: Audio decoded, duration:", audioBuffer.duration, "seconds");
 
-    return new Promise((resolve, reject) => {
-      const source = context.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(context.destination);
+      return new Promise((resolve, reject) => {
+        const source = context.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(context.destination);
 
-      source.onended = () => {
-        resolve();
-      };
+        source.onended = () => {
+          console.log("AudioQueue: Audio playback ended");
+          resolve();
+        };
 
-      source.onerror = (error) => {
-        reject(error);
-      };
+        source.onerror = (error) => {
+          console.error("AudioQueue: Audio playback error:", error);
+          reject(error);
+        };
 
-      source.start(0);
-    });
+        console.log("AudioQueue: Starting audio playback");
+        source.start(0);
+      });
+    } catch (error) {
+      console.error("AudioQueue: Failed to decode or play audio:", error);
+      throw error;
+    }
   }
 
   /**
