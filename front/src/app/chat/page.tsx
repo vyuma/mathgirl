@@ -164,10 +164,10 @@ export default function ChatPage() {
       setIsSpeaking(true);
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
         const styleId = selectedSpeaker.styles[selectedStyleIndex]?.id ?? 0;
 
-        const response = await fetch(`${apiUrl}/api/synthesis`, {
+        // Next.js rewrites経由でバックエンドにプロキシ
+        const response = await fetch(`/api/backend/synthesis`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -319,8 +319,8 @@ export default function ChatPage() {
   const fallbackSend = useCallback(
     async (newUserMessage: Message, goal?: string) => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-        const response = await fetch(`${apiUrl}/api/chat`, {
+        // Next.js rewrites経由でバックエンドにプロキシ
+        const response = await fetch(`/api/backend/chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

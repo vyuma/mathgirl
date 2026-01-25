@@ -19,9 +19,19 @@ type UseChatWebSocketOptions = {
   onError?: (error: string) => void;
 };
 
+// ブラウザ環境でWebSocket URLを動的に生成
+function getDefaultWsUrl(): string {
+  if (typeof window === "undefined") {
+    return "ws://localhost:8080/ws/chat";
+  }
+  // 現在のホストに基づいてWebSocket URLを生成
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws/chat`;
+}
+
 export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
   const {
-    url = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/chat",
+    url,
     onTextChunk,
     onAudioChunk,
     onComplete,
@@ -41,7 +51,10 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
 
     setConnectionState("connecting");
 
-    const ws = new WebSocket(url);
+    // URLが指定されていない場合は動的に生成
+    const wsUrl = url || getDefaultWsUrl();
+    console.log("WebSocket connecting to:", wsUrl);
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       setConnectionState("connected");
