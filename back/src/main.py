@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from router import chat_ws_router, chat_router, speakers_router, synthesis_router, aizuchi_router, turntaking_ws_router
+from router.speak_chat import chat_ws_router, chat_router, speakers_router, synthesis_router, aizuchi_router, turntaking_ws_router
 
 app = FastAPI(title="Mathgirl API", version="0.1.0")
 

@@ -1,6 +1,6 @@
 import os
 import httpx
-from model.speaker import Speaker, SpeakerStyle
+from model.speak_chat.speaker import Speaker, SpeakerStyle
 
 
 class CoeiroinkClient:

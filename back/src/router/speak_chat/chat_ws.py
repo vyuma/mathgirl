@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from model.chat import ChatRequest, ChatMessage, ErrorMessage
+from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage
 from service.tts import StreamingTTS
 
 router = APIRouter()

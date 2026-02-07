@@ -3,7 +3,7 @@ import asyncio
 import base64
 from typing import AsyncGenerator
 
-from model.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
+from model.speak_chat.chat import ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage
 from agent.original_chat import AliceAgent
 from .coeiroink_client import CoeiroinkClient
 

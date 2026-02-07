@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from model.speaker import Speaker
+from model.speak_chat.speaker import Speaker
 from service.tts import CoeiroinkClient
 
 router = APIRouter()

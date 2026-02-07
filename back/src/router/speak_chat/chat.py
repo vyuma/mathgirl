@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from model.chat import ChatMessage
+from model.speak_chat.chat import ChatMessage
 from agent.original_chat import AliceAgent
 
 router = APIRouter()
