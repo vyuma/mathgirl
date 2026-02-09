@@ -14,6 +14,7 @@ import {
   type CompleteMessage,
 } from "@/lib/websocket";
 import { useStreamingAudio } from "@/lib/audio";
+import { useAizuchi } from "@/lib/aizuchi";
 
 type Message = {
   role: "user" | "assistant";
@@ -58,6 +59,8 @@ export default function ChatPage() {
     },
   });
 
+  const { scheduleAizuchi, cancel: cancelAizuchi } = useAizuchi();
+
   // WebSocketハンドラー
   const handleTextChunk = useCallback((chunk: TextChunk) => {
     console.log("Received text chunk:", chunk.index, "text:", chunk.text);
@@ -74,10 +77,11 @@ export default function ChatPage() {
 
   const handleAudioChunk = useCallback(
     (chunk: AudioChunk) => {
+      cancelAizuchi();
       console.log("Received audio chunk:", chunk.index, "base64 length:", chunk.audio_base64.length);
       addAudioChunk(chunk.index, chunk.audio_base64);
     },
-    [addAudioChunk]
+    [addAudioChunk, cancelAizuchi]
   );
 
   const handleComplete = useCallback((message: CompleteMessage) => {
@@ -93,9 +97,10 @@ export default function ChatPage() {
 
   const handleWsError = useCallback((error: string) => {
     console.error("WebSocket error:", error);
+    cancelAizuchi();
     setStreamingText("");
     textChunksRef.current.clear();
-  }, []);
+  }, [cancelAizuchi]);
 
   // WebSocket接続
   const {
@@ -297,7 +302,9 @@ export default function ChatPage() {
         goal
       );
 
-      if (!success) {
+      if (success) {
+        scheduleAizuchi(selectedSpeaker.name);
+      } else {
         // WebSocket送信失敗時はフォールバック
         await fallbackSend(newUserMessage, goal);
       }
@@ -315,6 +322,7 @@ export default function ChatPage() {
     isConnected,
     sendChatRequest,
     resetAudio,
+    scheduleAizuchi,
   ]);
 
   // フォールバック: バックエンドAPI経由

@@ -1,150 +1,92 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
-type UseAizuchiOptions = {
-  speakerUuid: string;
-  styleId: number;
-  onAizuchiReady?: (audioBlob: Blob, text: string) => void;
-  onAizuchiPlay?: () => void;
-  onAizuchiEnd?: () => void;
-  minTextLength?: number; // 相槌をトリガーする最小文字数
-  useLLM?: boolean; // LLMを使うか
-};
+const KANA_FILES = [
+  "/aizuti/001_KANA（のーまる）_うん.wav",
+  "/aizuti/002_KANA（のーまる）_そぉだなぁ.wav",
+  "/aizuti/003_KANA（のーまる）_そっか.wav",
+  "/aizuti/004_KANA（のーまる）_うんうん.wav",
+  "/aizuti/005_KANA（のーまる）_へぇ.wav",
+  "/aizuti/006_KANA（のーまる）_なるほど.wav",
+  "/aizuti/007_KANA（のーまる）_そうなんだ.wav",
+  "/aizuti/008_KANA（のーまる）_ふむふむ.wav",
+];
 
-export function useAizuchi(options: UseAizuchiOptions) {
-  const {
-    speakerUuid,
-    styleId,
-    onAizuchiReady,
-    onAizuchiPlay,
-    onAizuchiEnd,
-    minTextLength = 10, // デフォルト10文字で相槌準備開始
-    useLLM = false,
-  } = options;
+const MANA_FILES = [
+  "/aizuti/009_MANA（のーまる）_うん.wav",
+  "/aizuti/010_MANA（のーまる）_そぉだなぁ.wav",
+  "/aizuti/011_MANA（のーまる）_そっか.wav",
+  "/aizuti/012_MANA（のーまる）_うんうん.wav",
+  "/aizuti/013_MANA（のーまる）_へぇ.wav",
+  "/aizuti/014_MANA（のーまる）_なるほど.wav",
+  "/aizuti/015_MANA（のーまる）_そうなんだ.wav",
+];
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [pendingAudio, setPendingAudio] = useState<Blob | null>(null);
-  const [pendingText, setPendingText] = useState<string | null>(null);
-  const hasFetchedRef = useRef(false);
+const ALL_FILES = [...KANA_FILES, ...MANA_FILES];
+const AIZUCHI_DELAY_MS = 1500;
+
+function getFilesForSpeaker(speakerName?: string): string[] {
+  if (!speakerName) return ALL_FILES;
+  const upper = speakerName.toUpperCase();
+  if (upper.includes("KANA")) return KANA_FILES;
+  if (upper.includes("MANA")) return MANA_FILES;
+  return ALL_FILES;
+}
+
+export function useAizuchi() {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isScheduledRef = useRef(false);
 
-  /**
-   * 相槌音声を事前取得
-   */
-  const prefetchAizuchi = useCallback(
-    async (userText: string) => {
-      // 既に取得済みなら何もしない
-      if (hasFetchedRef.current || isLoading) {
-        return;
-      }
+  const cancel = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    isScheduledRef.current = false;
+  }, []);
 
-      // 最小文字数に達していなければ何もしない
-      if (userText.length < minTextLength) {
-        return;
-      }
+  const scheduleAizuchi = useCallback(
+    (speakerName?: string) => {
+      if (isScheduledRef.current) return;
+      isScheduledRef.current = true;
 
-      hasFetchedRef.current = true;
-      setIsLoading(true);
-
-      try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-        const response = await fetch(`${apiUrl}/api/aizuchi/audio`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_text: userText,
-            speaker_uuid: speakerUuid,
-            style_id: styleId,
-            use_llm: useLLM,
-          }),
-        });
-
-        if (!response.ok) {
-          console.error("Aizuchi fetch failed:", response.status);
-          return;
-        }
-
-        const audioBlob = await response.blob();
-        const encodedText = response.headers.get("X-Aizuchi-Text") || "%E3%81%86%E3%82%93%E3%81%86%E3%82%93";
-        const aizuchiText = decodeURIComponent(encodedText);
-
-        setPendingAudio(audioBlob);
-        setPendingText(aizuchiText);
-        onAizuchiReady?.(audioBlob, aizuchiText);
-      } catch (error) {
-        console.error("Aizuchi error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [speakerUuid, styleId, useLLM, minTextLength, isLoading, onAizuchiReady]
-  );
-
-  /**
-   * 相槌を再生（遅延付き）
-   */
-  const playAizuchi = useCallback(
-    async (delayMs: number = 250) => {
-      if (!pendingAudio) {
-        return false;
-      }
-
-      // 指定時間待つ
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-
-      const audioUrl = URL.createObjectURL(pendingAudio);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      return new Promise<boolean>((resolve) => {
-        audio.onplay = () => {
-          onAizuchiPlay?.();
-        };
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        const files = getFilesForSpeaker(speakerName);
+        const file = files[Math.floor(Math.random() * files.length)];
+        const audio = new Audio(file);
+        audioRef.current = audio;
 
         audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          onAizuchiEnd?.();
-          resolve(true);
+          audioRef.current = null;
+          isScheduledRef.current = false;
         };
-
         audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          resolve(false);
+          audioRef.current = null;
+          isScheduledRef.current = false;
         };
 
         audio.play().catch(() => {
-          resolve(false);
+          audioRef.current = null;
+          isScheduledRef.current = false;
         });
-      });
+      }, AIZUCHI_DELAY_MS);
     },
-    [pendingAudio, onAizuchiPlay, onAizuchiEnd]
+    []
   );
 
-  /**
-   * 状態をリセット（次の発話用）
-   */
-  const reset = useCallback(() => {
-    hasFetchedRef.current = false;
-    setPendingAudio(null);
-    setPendingText(null);
-    setIsLoading(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-  }, []);
+  useEffect(() => {
+    return () => {
+      cancel();
+    };
+  }, [cancel]);
 
-  return {
-    isLoading,
-    pendingAudio,
-    pendingText,
-    hasAizuchi: pendingAudio !== null,
-    prefetchAizuchi,
-    playAizuchi,
-    reset,
-  };
+  return { scheduleAizuchi, cancel };
 }
