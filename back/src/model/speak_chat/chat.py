@@ -15,6 +15,7 @@ class ChatRequest(BaseModel):
     goal: str | None = None
     speaker_uuid: str
     style_id: int = 0
+    session_id: str | None = None
 
 
 class TextChunk(BaseModel):
@@ -44,5 +45,27 @@ class ErrorMessage(BaseModel):
     message: str
 
 
+class BlackboardUpdate(BaseModel):
+    """黒板更新メッセージ"""
+    type: Literal["blackboard_update"] = "blackboard_update"
+    latex: str
+    explanation: str
+
+
+class SuggestOperation(BaseModel):
+    """式操作提案メッセージ"""
+    type: Literal["suggest_operation"] = "suggest_operation"
+    latex: str
+    operation: str
+    explanation: str
+
+
+class HintMessage(BaseModel):
+    """ヒントメッセージ"""
+    type: Literal["hint"] = "hint"
+    hint_text: str
+    related_latex: str | None = None
+
+
 # Union type for all WebSocket messages
-WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage
+WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage | BlackboardUpdate | SuggestOperation | HintMessage

@@ -7,5 +7,8 @@ export type {
   AudioChunk,
   CompleteMessage,
   ErrorMessage,
+  BlackboardUpdate,
+  SuggestOperation,
+  HintMessage,
   ConnectionState,
 } from "./types";

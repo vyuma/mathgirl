@@ -1,10 +1,34 @@
 import json
+import uuid
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage
+from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage, CompleteMessage
 from service.tts import StreamingTTS
+from db.engine import async_session_factory
+from db.repositories import MessageRepository
 
 router = APIRouter()
+
+
+async def _save_message(session_id_str: str | None, role: str, content: str, content_type: str = "text", metadata: dict | None = None):
+    """セッションIDがある場合、メッセージをDBに保存"""
+    if not session_id_str:
+        return
+    try:
+        session_id = uuid.UUID(session_id_str)
+        async with async_session_factory() as db:
+            repo = MessageRepository(db)
+            await repo.create(
+                session_id=session_id,
+                role=role,
+                content=content,
+                content_type=content_type,
+                metadata=metadata,
+            )
+            await db.commit()
+    except Exception as e:
+        print(f"Failed to save message: {e}")
 
 
 @router.websocket("/ws/chat")
@@ -40,7 +64,19 @@ async def chat_websocket(websocket: WebSocket):
                     goal=data.get("goal"),
                     speaker_uuid=data["speaker_uuid"],
                     style_id=data.get("style_id", 0),
+                    session_id=data.get("session_id"),
                 )
+
+                # ユーザーの最新メッセージをDBに保存
+                if request.messages:
+                    last_user_msg = next(
+                        (m for m in reversed(request.messages) if m.role == "user"),
+                        None,
+                    )
+                    if last_user_msg:
+                        await _save_message(
+                            request.session_id, "user", last_user_msg.content
+                        )
 
                 # ストリーミング応答を送信
                 async for message in streaming_tts.stream_chat_with_audio(
@@ -50,6 +86,12 @@ async def chat_websocket(websocket: WebSocket):
                     style_id=request.style_id,
                 ):
                     await websocket.send_text(message.model_dump_json())
+
+                    # 完了メッセージでアシスタント応答をDBに保存
+                    if isinstance(message, CompleteMessage):
+                        await _save_message(
+                            request.session_id, "assistant", message.full_text
+                        )
 
             except json.JSONDecodeError:
                 error = ErrorMessage(message="Invalid JSON")

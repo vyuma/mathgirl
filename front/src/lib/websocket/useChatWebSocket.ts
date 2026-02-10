@@ -8,6 +8,9 @@ import type {
   TextChunk,
   AudioChunk,
   CompleteMessage,
+  BlackboardUpdate,
+  SuggestOperation,
+  HintMessage,
   ConnectionState,
 } from "./types";
 
@@ -17,14 +20,15 @@ type UseChatWebSocketOptions = {
   onAudioChunk?: (chunk: AudioChunk) => void;
   onComplete?: (message: CompleteMessage) => void;
   onError?: (error: string) => void;
+  onBlackboardUpdate?: (data: BlackboardUpdate) => void;
+  onSuggestOperation?: (data: SuggestOperation) => void;
+  onHint?: (data: HintMessage) => void;
 };
 
-// ブラウザ環境でWebSocket URLを動的に生成
 function getDefaultWsUrl(): string {
   if (typeof window === "undefined") {
     return "ws://localhost:8080/ws/chat";
   }
-  // 現在のホストに基づいてWebSocket URLを生成
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/ws/chat`;
 }
@@ -36,13 +40,18 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     onAudioChunk,
     onComplete,
     onError,
+    onBlackboardUpdate,
+    onSuggestOperation,
+    onHint,
   } = options;
 
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [isProcessing, setIsProcessing] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -51,24 +60,19 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
 
     setConnectionState("connecting");
 
-    // URLが指定されていない場合は動的に生成
     const wsUrl = url || getDefaultWsUrl();
-    console.log("WebSocket connecting to:", wsUrl);
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       setConnectionState("connected");
-      console.log("WebSocket connected");
     };
 
     ws.onclose = () => {
       setConnectionState("disconnected");
-      console.log("WebSocket disconnected");
       wsRef.current = null;
     };
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+    ws.onerror = () => {
       setConnectionState("error");
       onError?.("WebSocket connection error");
     };
@@ -92,6 +96,15 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
             onError?.(message.message);
             setIsProcessing(false);
             break;
+          case "blackboard_update":
+            onBlackboardUpdate?.(message);
+            break;
+          case "suggest_operation":
+            onSuggestOperation?.(message);
+            break;
+          case "hint":
+            onHint?.(message);
+            break;
         }
       } catch (e) {
         console.error("Failed to parse message:", e);
@@ -99,7 +112,16 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     };
 
     wsRef.current = ws;
-  }, [url, onTextChunk, onAudioChunk, onComplete, onError]);
+  }, [
+    url,
+    onTextChunk,
+    onAudioChunk,
+    onComplete,
+    onError,
+    onBlackboardUpdate,
+    onSuggestOperation,
+    onHint,
+  ]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -120,7 +142,8 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
       messages: ChatMessage[],
       speakerUuid: string,
       styleId: number,
-      goal?: string
+      goal?: string,
+      sessionId?: string
     ) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         onError?.("WebSocket not connected");
@@ -133,6 +156,7 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
         goal,
         speaker_uuid: speakerUuid,
         style_id: styleId,
+        session_id: sessionId,
       };
 
       setIsProcessing(true);
@@ -142,7 +166,6 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     [onError]
   );
 
-  // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {
     return () => {
       disconnect();
