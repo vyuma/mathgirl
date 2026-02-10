@@ -21,7 +21,7 @@ export type MathOperation =
 
 export function performOperation(
   latex: string,
-  operation: MathOperation
+  operation: MathOperation,
 ): string | null {
   const ce = getComputeEngine();
 

@@ -58,6 +58,22 @@ export type HintMessage = {
   related_latex: string | null;
 };
 
+export type SocraticQuestion = {
+  type: "socratic_question";
+  question_text: string;
+  question_if_correct: string;
+  question_if_stuck: string;
+  visual_hint_latex: string | null;
+  current_understanding_level: number;
+};
+
+export type UnderstandingUpdate = {
+  type: "understanding_update";
+  level: number;
+  reasoning: string;
+  topic: string;
+};
+
 export type WSMessage =
   | TextChunk
   | AudioChunk
@@ -65,7 +81,9 @@ export type WSMessage =
   | ErrorMessage
   | BlackboardUpdate
   | SuggestOperation
-  | HintMessage;
+  | HintMessage
+  | SocraticQuestion
+  | UnderstandingUpdate;
 
 // 接続状態
 export type ConnectionState =

@@ -1,9 +1,9 @@
 "use client";
 
+import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin, VRM } from "@pixiv/three-vrm";
 
 export default function VRMView() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -14,7 +14,7 @@ export default function VRMView() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('/api/models');
+        const response = await fetch("/api/models");
         const data = await response.json();
         if (Array.isArray(data)) {
           setModels(data);
@@ -23,7 +23,7 @@ export default function VRMView() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch models:', error);
+        console.error("Failed to fetch models:", error);
       }
     };
     fetchModels();
@@ -50,7 +50,7 @@ export default function VRMView() {
       50,
       container.clientWidth / container.clientHeight,
       0.1,
-      20.0
+      20.0,
     );
     camera.position.set(0, 1.2, 2.2);
     camera.lookAt(0, 1.2, 0);
@@ -89,22 +89,22 @@ export default function VRMView() {
         const vrm = gltf.userData.vrm;
         scene.add(vrm.scene);
         vrm.scene.rotation.y = Math.PI;
-        
+
         const bbox = new THREE.Box3().setFromObject(vrm.scene);
         vrm.scene.position.y = -bbox.min.y;
 
         vrm.scene.scale.set(1.2, 1.2, 1.2);
-        
+
         currentVrm = vrm;
         vrmRef.current = vrm;
       },
       undefined,
       (error) => {
         console.error(error);
-      }
+      },
     );
 
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
     const animate = () => {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -127,8 +127,8 @@ export default function VRMView() {
   return (
     <div style={{ position: "relative", width: "100%", height: "100vh" }}>
       {models.length > 0 && vrmUrl && (
-        <select 
-          onChange={handleModelChange} 
+        <select
+          onChange={handleModelChange}
           value={vrmUrl}
           style={{ position: "absolute", top: "10px", left: "10px", zIndex: 1 }}
         >

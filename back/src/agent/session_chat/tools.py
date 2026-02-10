@@ -32,22 +32,6 @@ def write_to_blackboard(latex: str, explanation: str) -> str:
 
 
 @tool
-def give_hint(hint_text: str, related_latex: str = "") -> str:
-    """学習者が困っているときにヒントを与える。段階的に出す。
-
-    Args:
-        hint_text: ヒントのテキスト
-        related_latex: 関連する数式（LaTeX形式、任意）
-    """
-    _tool_results.append({
-        "type": "hint",
-        "hint_text": hint_text,
-        "related_latex": related_latex or None,
-    })
-    return f"ヒントを提示しました: {hint_text}"
-
-
-@tool
 def suggest_operation(latex: str, operation: str, explanation: str) -> str:
     """学習者に式操作を提案する。
 
@@ -65,4 +49,50 @@ def suggest_operation(latex: str, operation: str, explanation: str) -> str:
     return f"{operation} を提案しました: {latex}"
 
 
-SESSION_TOOLS = [write_to_blackboard, give_hint, suggest_operation]
+@tool
+def pose_question(
+    question_text: str,
+    question_if_correct: str,
+    question_if_stuck: str,
+    visual_hint_latex: str = "",
+    current_understanding_level: int = 0,
+) -> str:
+    """ソクラテス式の問いを構造化して提示する。正解時と詰まった時の次の問いも用意する。
+
+    Args:
+        question_text: 学習者に投げかける問い
+        question_if_correct: 学習者が正しく答えた場合の次の問い
+        question_if_stuck: 学習者が詰まった場合のヒントとなる問い
+        visual_hint_latex: 視覚的ヒントとなるLaTeX数式（任意）
+        current_understanding_level: 現在の推定理解度（0-5）
+    """
+    _tool_results.append({
+        "type": "socratic_question",
+        "question_text": question_text,
+        "question_if_correct": question_if_correct,
+        "question_if_stuck": question_if_stuck,
+        "visual_hint_latex": visual_hint_latex or None,
+        "current_understanding_level": current_understanding_level,
+    })
+    return f"問いを提示しました: {question_text}"
+
+
+@tool
+def estimate_understanding(level: int, reasoning: str, topic: str) -> str:
+    """学習者の理解度を評価・更新する。対話の節目で使用する。
+
+    Args:
+        level: 理解度レベル（0-5）
+        reasoning: この評価に至った根拠
+        topic: 評価対象のトピック
+    """
+    _tool_results.append({
+        "type": "understanding_update",
+        "level": level,
+        "reasoning": reasoning,
+        "topic": topic,
+    })
+    return f"理解度を更新しました: {topic} = Lv{level}"
+
+
+SESSION_TOOLS = [write_to_blackboard, suggest_operation, pose_question, estimate_understanding]

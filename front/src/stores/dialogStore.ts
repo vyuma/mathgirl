@@ -25,8 +25,7 @@ export const useDialogStore = create<DialogState>((set) => ({
   streamingText: "",
   isProcessing: false,
 
-  addMessage: (msg) =>
-    set((state) => ({ messages: [...state.messages, msg] })),
+  addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   setMessages: (msgs) => set({ messages: msgs }),
   setStreamingText: (text) => set({ streamingText: text }),
   setIsProcessing: (val) => set({ isProcessing: val }),

@@ -5,7 +5,7 @@ import { useNoteStore } from "@/stores/noteStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
 export function useAutoSave(debounceMs = 2000) {
-  const { blocks, isDirty, setDirty } = useNoteStore();
+  const { content, isDirty, setDirty } = useNoteStore();
   const { sessionId } = useSessionStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -18,26 +18,10 @@ export function useAutoSave(debounceMs = 2000) {
 
     timerRef.current = setTimeout(async () => {
       try {
-        const contentBlocks = blocks.map((b) => {
-          if (b.type === "markdown") {
-            return {
-              block_id: b.blockId,
-              type: "markdown",
-              content: b.content,
-            };
-          }
-          return {
-            block_id: b.blockId,
-            type: "mathlive",
-            latex: b.latex,
-            mathjson: b.mathjson || null,
-          };
-        });
-
         await fetch(`/api/backend/sessions/${sessionId}/note`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content_blocks: contentBlocks }),
+          body: JSON.stringify({ content }),
         });
         setDirty(false);
       } catch (error) {
@@ -50,5 +34,5 @@ export function useAutoSave(debounceMs = 2000) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [blocks, isDirty, sessionId, debounceMs, setDirty]);
+  }, [content, isDirty, sessionId, debounceMs, setDirty]);
 }

@@ -1,141 +1,178 @@
 "use client";
 
-import { useCallback } from "react";
-import { useNoteStore, generateBlockId, type NoteBlock } from "@/stores/noteStore";
-import MarkdownBlock from "./MarkdownBlock";
-import MathBlock from "./MathBlock";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { parseMarkdown } from "@/components/markdown/mdastParser";
+import { NodesRenderer } from "@/components/markdown/NodesRenderer";
+import { useNoteStore } from "@/stores/noteStore";
+
+const formatButtons = [
+  { icon: "B", label: "太字", prefix: "**", suffix: "**", key: "b" },
+  { icon: "I", label: "斜体", prefix: "*", suffix: "*", key: "i" },
+  { icon: "H1", label: "見出し1", prefix: "# ", suffix: "", key: "" },
+  { icon: "H2", label: "見出し2", prefix: "## ", suffix: "", key: "" },
+  { icon: "•", label: "リスト", prefix: "- ", suffix: "", key: "" },
+  { icon: "☑", label: "チェック", prefix: "- [ ] ", suffix: "", key: "" },
+  { icon: "</>", label: "コード", prefix: "`", suffix: "`", key: "" },
+  { icon: "∑", label: "数式", prefix: "$", suffix: "$", key: "m" },
+];
 
 export default function NoteEditor() {
-  const {
-    blocks,
-    focusedBlockId,
-    addBlock,
-    updateBlock,
-    removeBlock,
-    setFocusedBlock,
-  } = useNoteStore();
+  const { content, viewMode, setContent, setViewMode } = useNoteStore();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleAddMarkdownBlock = useCallback(
-    (afterId?: string) => {
-      const newBlock: NoteBlock = {
-        blockId: generateBlockId(),
-        type: "markdown",
-        content: "",
-      };
-      addBlock(newBlock, afterId);
-      setFocusedBlock(newBlock.blockId);
+  const mdast = useMemo(() => {
+    if (!content) return null;
+    try {
+      return parseMarkdown(content);
+    } catch {
+      return null;
+    }
+  }, [content]);
+
+  const insertFormatting = useCallback(
+    (prefix: string, suffix: string) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = content.substring(start, end);
+      const newText =
+        content.substring(0, start) +
+        prefix +
+        selectedText +
+        suffix +
+        content.substring(end);
+
+      setContent(newText);
+
+      setTimeout(() => {
+        textarea.focus();
+        const cursorPos =
+          start +
+          prefix.length +
+          (selectedText ? selectedText.length + suffix.length : 0);
+        textarea.setSelectionRange(
+          selectedText ? cursorPos : start + prefix.length,
+          selectedText ? cursorPos : start + prefix.length,
+        );
+      }, 0);
     },
-    [addBlock, setFocusedBlock]
+    [content, setContent],
   );
 
-  const handleAddMathBlock = useCallback(
-    (afterId?: string) => {
-      const newBlock: NoteBlock = {
-        blockId: generateBlockId(),
-        type: "mathlive",
-        latex: "",
-      };
-      addBlock(newBlock, afterId);
-    },
-    [addBlock]
-  );
-
-  const handleInsertResult = useCallback(
-    (afterBlockId: string, resultLatex: string) => {
-      const newBlock: NoteBlock = {
-        blockId: generateBlockId(),
-        type: "mathlive",
-        latex: resultLatex,
-      };
-      addBlock(newBlock, afterBlockId);
-    },
-    [addBlock]
-  );
-
-  const handleBackspace = useCallback(
-    (blockId: string) => {
-      const block = blocks.find((b) => b.blockId === blockId);
-      if (!block) return;
-      const isEmpty =
-        block.type === "markdown" ? !block.content : !block.latex;
-      if (isEmpty && blocks.length > 1) {
-        removeBlock(blockId);
-        // Focus previous block
-        const idx = blocks.findIndex((b) => b.blockId === blockId);
-        if (idx > 0) {
-          setFocusedBlock(blocks[idx - 1].blockId);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.metaKey || e.ctrlKey) {
+        const btn = formatButtons.find((b) => b.key === e.key);
+        if (btn) {
+          e.preventDefault();
+          insertFormatting(btn.prefix, btn.suffix);
         }
       }
+
+      // Tab でインデント
+      if (e.key === "Tab") {
+        e.preventDefault();
+        insertFormatting("  ", "");
+      }
     },
-    [blocks, removeBlock, setFocusedBlock]
+    [insertFormatting],
   );
 
   return (
-    <div className="space-y-1">
-      {blocks.length === 0 && (
-        <div className="text-center py-4">
-          <button
-            onClick={() => handleAddMarkdownBlock()}
-            className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition mr-2"
-          >
-            + テキスト
-          </button>
-          <button
-            onClick={() => handleAddMathBlock()}
-            className="px-3 py-1.5 text-sm bg-amber-50 hover:bg-amber-100 rounded-lg transition"
-          >
-            + 数式
-          </button>
+    <div className="flex flex-col h-full">
+      {/* ツールバー */}
+      <div className="flex items-center gap-1 p-2 bg-gradient-to-r from-amber-50 to-orange-50 rounded-t-xl border border-amber-200 border-b-0">
+        {/* フォーマットボタン */}
+        <div className="flex gap-0.5">
+          {formatButtons.map((btn) => (
+            <button
+              key={btn.icon}
+              type="button"
+              onClick={() => insertFormatting(btn.prefix, btn.suffix)}
+              className="w-8 h-8 text-xs font-bold bg-white/80 hover:bg-white border border-amber-200 rounded-lg flex items-center justify-center text-amber-700 hover:text-amber-900 transition shadow-sm"
+              title={
+                btn.label + (btn.key ? ` (⌘${btn.key.toUpperCase()})` : "")
+              }
+            >
+              {btn.icon}
+            </button>
+          ))}
         </div>
-      )}
 
-      {blocks.map((block) => (
-        <div key={block.blockId} className="group relative">
-          {block.type === "markdown" ? (
-            <MarkdownBlock
-              blockId={block.blockId}
-              content={block.content}
-              isFocused={focusedBlockId === block.blockId}
-              onFocus={() => setFocusedBlock(block.blockId)}
-              onBlur={() => setFocusedBlock(null)}
-              onChange={(content) =>
-                updateBlock(block.blockId, { content })
-              }
-              onEnter={() => handleAddMarkdownBlock(block.blockId)}
-              onBackspace={() => handleBackspace(block.blockId)}
-            />
-          ) : (
-            <MathBlock
-              blockId={block.blockId}
-              latex={block.latex}
-              onChange={(latex, mathjson) =>
-                updateBlock(block.blockId, { latex, mathjson })
-              }
-              onInsertResult={(resultLatex) =>
-                handleInsertResult(block.blockId, resultLatex)
-              }
-            />
-          )}
+        <div className="flex-1" />
 
-          {/* Block type buttons (visible on hover) */}
-          <div className="absolute -left-8 top-1 opacity-0 group-hover:opacity-100 transition flex flex-col gap-0.5">
+        {/* 表示切替 */}
+        <div className="flex bg-white/80 rounded-lg p-0.5 border border-amber-200 shadow-sm">
+          {[
+            { mode: "edit" as const, icon: "✏️", label: "編集" },
+            { mode: "split" as const, icon: "📄", label: "分割" },
+            { mode: "preview" as const, icon: "👁", label: "プレビュー" },
+          ].map((item) => (
             <button
-              onClick={() => handleAddMarkdownBlock(block.blockId)}
-              className="w-6 h-6 text-xs bg-gray-100 hover:bg-gray-200 rounded"
-              title="テキストを追加"
+              key={item.mode}
+              type="button"
+              onClick={() => setViewMode(item.mode)}
+              className={`px-2 py-1 text-xs rounded-md transition ${
+                viewMode === item.mode
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-amber-600 hover:bg-amber-100"
+              }`}
+              title={item.label}
             >
-              T
+              {item.icon}
             </button>
-            <button
-              onClick={() => handleAddMathBlock(block.blockId)}
-              className="w-6 h-6 text-xs bg-amber-50 hover:bg-amber-100 rounded"
-              title="数式を追加"
-            >
-              fx
-            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* エディタ & プレビュー */}
+      <div className="flex-1 flex min-h-0 border border-amber-200 rounded-b-xl overflow-hidden bg-white">
+        {/* 編集エリア */}
+        {(viewMode === "edit" || viewMode === "split") && (
+          <div
+            className={`flex-1 ${viewMode === "split" ? "border-r border-amber-100" : ""}`}
+          >
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full h-full p-4 text-sm leading-relaxed resize-none focus:outline-none bg-transparent text-amber-900 placeholder-amber-300"
+              placeholder={`ここに自由にメモを書こう！
+
+📝 Markdown記法が使えます：
+• **太字** や *斜体*
+• # 見出し
+• - 箇条書き
+• $数式$ (LaTeX)
+
+💡 ⌘B: 太字, ⌘I: 斜体, ⌘M: 数式`}
+            />
           </div>
-        </div>
-      ))}
+        )}
+
+        {/* プレビューエリア */}
+        {(viewMode === "preview" || viewMode === "split") && (
+          <div className="flex-1 p-4 overflow-auto bg-gradient-to-br from-amber-50/30 to-orange-50/30">
+            {content ? (
+              <div className="prose prose-sm max-w-none prose-headings:text-amber-900 prose-p:text-amber-800 prose-strong:text-amber-900 prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:rounded prose-ul:text-amber-800 prose-ol:text-amber-800 prose-blockquote:border-amber-300 prose-blockquote:text-amber-700">
+                {mdast ? (
+                  <NodesRenderer nodes={mdast.children} />
+                ) : (
+                  <p>{content}</p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-amber-300">
+                <span className="text-3xl mb-2 block">📝</span>
+                <p>プレビューがここに表示されます</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,19 +1,22 @@
 "use client";
 
 import { useCallback } from "react";
-import { useSessionStore } from "@/stores/sessionStore";
+import { useBlackboardStore } from "@/stores/blackboardStore";
 import { useDialogStore } from "@/stores/dialogStore";
 import { useNoteStore } from "@/stores/noteStore";
-import { useBlackboardStore } from "@/stores/blackboardStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useUnderstandingStore } from "@/stores/understandingStore";
 
 export function useSessionManager() {
   const sessionStore = useSessionStore();
   const dialogStore = useDialogStore();
   const noteStore = useNoteStore();
   const blackboardStore = useBlackboardStore();
+  const understandingStore = useUnderstandingStore();
 
   const startSession = useCallback(
     async (textContent?: string) => {
+      console.log("[useSessionManager] startSession called with textContent:", textContent);
       sessionStore.setStatus("starting");
 
       try {
@@ -26,12 +29,14 @@ export function useSessionManager() {
         if (!res.ok) throw new Error("Failed to create session");
 
         const data = await res.json();
+        console.log("[useSessionManager] Setting session with textContent:", textContent || null);
         sessionStore.setSession(data.session_id, textContent || null);
 
         // Reset other stores
         dialogStore.reset();
         noteStore.reset();
         blackboardStore.clearFormulas();
+        understandingStore.reset();
 
         return data.session_id as string;
       } catch (error) {
@@ -40,7 +45,7 @@ export function useSessionManager() {
         return null;
       }
     },
-    [sessionStore, dialogStore, noteStore, blackboardStore]
+    [sessionStore, dialogStore, noteStore, blackboardStore, understandingStore],
   );
 
   const endSession = useCallback(async () => {
@@ -61,7 +66,8 @@ export function useSessionManager() {
     dialogStore.reset();
     noteStore.reset();
     blackboardStore.clearFormulas();
-  }, [sessionStore, dialogStore, noteStore, blackboardStore]);
+    understandingStore.reset();
+  }, [sessionStore, dialogStore, noteStore, blackboardStore, understandingStore]);
 
   return {
     sessionId: sessionStore.sessionId,

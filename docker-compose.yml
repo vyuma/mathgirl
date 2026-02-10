@@ -3,12 +3,14 @@ services:
     build:
       context: ./front
       dockerfile: Dockerfile
+      target: development
     ports:
       - "${FRONT_PORT}:${FRONT_PORT}"
     volumes:
       - ./front:/app
       - /app/node_modules
     environment:
+      - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:${BACK_PORT}
       - NEXT_PUBLIC_WS_URL=ws://localhost:${BACK_PORT}/ws/chat
       - PORT=${FRONT_PORT}

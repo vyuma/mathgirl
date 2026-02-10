@@ -1,21 +1,34 @@
 "use client";
 
-import VRMChat from "@/components/VRMChat";
 import BlackboardOverlay from "@/components/BlackboardOverlay";
-import TopBar from "@/components/TopBar";
-import SessionStartDialog from "@/components/SessionStartDialog";
-import PanelContainer from "@/components/panels/PanelContainer";
-import TextPanel from "@/components/panels/TextPanel";
-import NotePanel from "@/components/panels/NotePanel";
 import DialogLogPanel from "@/components/panels/DialogLogPanel";
 import IconBar from "@/components/panels/IconBar";
 import MobileTabBar from "@/components/panels/MobileTabBar";
+import NotePanel from "@/components/panels/NotePanel";
+import PanelContainer from "@/components/panels/PanelContainer";
+import TextPanel from "@/components/panels/TextPanel";
+import SessionStartDialog from "@/components/SessionStartDialog";
+import SpeechInputBar from "@/components/SpeechInputBar";
+import TopBar from "@/components/TopBar";
+import VRMChat from "@/components/VRMChat";
 import { useChat } from "@/hooks/useChat";
 import { useSessionStore } from "@/stores/sessionStore";
 
 export default function MainPage() {
   const { status } = useSessionStore();
-  const { isSpeaking, handleStart } = useChat();
+  const {
+    isSpeaking,
+    isListening,
+    isProcessing,
+    isSupported,
+    transcript,
+    interimTranscript,
+    hasUserInteracted,
+    handleStart,
+    handleSend,
+    startListening,
+    stopListening,
+  } = useChat();
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -35,7 +48,7 @@ export default function MainPage() {
         <TextPanel />
       </PanelContainer>
       <PanelContainer panel="note">
-        <NotePanel />
+        <NotePanel onShowToAlice={hasUserInteracted ? handleSend : undefined} />
       </PanelContainer>
       <PanelContainer panel="log">
         <DialogLogPanel />
@@ -50,11 +63,19 @@ export default function MainPage() {
       {/* セッション開始ダイアログ */}
       <SessionStartDialog onStarted={handleStart} />
 
-      {/* 未開始時のオーバーレイ (セッションがactiveだがまだ接続していない場合) */}
-      {status === "active" && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
-          {/* 音声入力UIは今はDialogLogPanel内 */}
-        </div>
+      {/* 音声入力バー */}
+      {hasUserInteracted && (
+        <SpeechInputBar
+          isListening={isListening}
+          transcript={transcript}
+          interimTranscript={interimTranscript}
+          isSupported={isSupported}
+          isProcessing={isProcessing}
+          isSpeaking={isSpeaking}
+          onSend={handleSend}
+          onStartListening={startListening}
+          onStopListening={stopListening}
+        />
       )}
     </div>
   );

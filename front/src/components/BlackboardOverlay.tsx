@@ -1,9 +1,9 @@
 "use client";
 
-import { useBlackboardStore } from "@/stores/blackboardStore";
-import { useNoteStore, generateBlockId } from "@/stores/noteStore";
-import { useEffect, useRef } from "react";
 import katex from "katex";
+import { useEffect, useRef } from "react";
+import { useBlackboardStore } from "@/stores/blackboardStore";
+import { useNoteStore } from "@/stores/noteStore";
 
 function FormulaCard({
   latex,
@@ -32,13 +32,13 @@ function FormulaCard({
   }, [latex]);
 
   return (
-    <div className="bg-gray-900/90 rounded-lg p-3 text-white max-w-sm backdrop-blur-sm">
+    <div className="bg-slate-950/95 rounded-lg p-3 text-white max-w-sm backdrop-blur-sm border border-indigo-500/30 animate-chalk-write">
       <div ref={mathRef} className="text-center mb-2 overflow-x-auto" />
       <p className="text-xs text-gray-300 mb-2">{explanation}</p>
       <div className="flex gap-1">
         <button
           onClick={onCopyToNote}
-          className="text-xs px-2 py-1 bg-amber-500/80 rounded hover:bg-amber-500 transition"
+          className="text-xs px-2 py-1 bg-indigo-500/80 rounded hover:bg-indigo-500 transition"
         >
           ノートにコピー
         </button>
@@ -55,16 +55,14 @@ function FormulaCard({
 
 export default function BlackboardOverlay() {
   const { formulas, removeFormula } = useBlackboardStore();
-  const { addBlock } = useNoteStore();
+  const { content, setContent } = useNoteStore();
 
   if (formulas.length === 0) return null;
 
   const handleCopyToNote = (latex: string, id: string) => {
-    addBlock({
-      blockId: generateBlockId(),
-      type: "mathlive",
-      latex,
-    });
+    // 数式をノートの末尾に追加
+    const mathBlock = `\n\n$$${latex}$$\n`;
+    setContent(content + mathBlock);
     removeFormula(id);
   };
 

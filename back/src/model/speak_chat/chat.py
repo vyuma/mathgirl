@@ -67,5 +67,23 @@ class HintMessage(BaseModel):
     related_latex: str | None = None
 
 
+class SocraticQuestion(BaseModel):
+    """ソクラテス式問いメッセージ"""
+    type: Literal["socratic_question"] = "socratic_question"
+    question_text: str
+    question_if_correct: str
+    question_if_stuck: str
+    visual_hint_latex: str | None = None
+    current_understanding_level: int = 0
+
+
+class UnderstandingUpdate(BaseModel):
+    """理解度更新メッセージ"""
+    type: Literal["understanding_update"] = "understanding_update"
+    level: int
+    reasoning: str
+    topic: str
+
+
 # Union type for all WebSocket messages
-WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage | BlackboardUpdate | SuggestOperation | HintMessage
+WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage | BlackboardUpdate | SuggestOperation | HintMessage | SocraticQuestion | UnderstandingUpdate

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { NodesRenderer } from "@/components/markdown/NodesRenderer";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { parseMarkdown } from "@/components/markdown/mdastParser";
+import { NodesRenderer } from "@/components/markdown/NodesRenderer";
 
 type MessageItem = {
   message_id: string;
@@ -122,9 +122,7 @@ export default function SessionDetailPage() {
           </svg>
         </button>
         <div>
-          <h1 className="text-sm font-bold">
-            {session?.title || "対話記録"}
-          </h1>
+          <h1 className="text-sm font-bold">{session?.title || "対話記録"}</h1>
           {session && (
             <span className="text-[10px] text-gray-400">
               {new Date(session.started_at).toLocaleDateString("ja-JP")}

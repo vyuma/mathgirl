@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from model.speak_chat.chat import (
     ChatMessage, TextChunk, AudioChunk, CompleteMessage, WSMessage,
     BlackboardUpdate, SuggestOperation, HintMessage,
+    SocraticQuestion, UnderstandingUpdate,
 )
 from agent.original_chat import AliceAgent
 from .coeiroink_client import CoeiroinkClient
@@ -118,6 +119,20 @@ class StreamingTTS:
                     yield HintMessage(
                         hint_text=result["hint_text"],
                         related_latex=result.get("related_latex"),
+                    )
+                elif msg_type == "socratic_question":
+                    yield SocraticQuestion(
+                        question_text=result["question_text"],
+                        question_if_correct=result["question_if_correct"],
+                        question_if_stuck=result["question_if_stuck"],
+                        visual_hint_latex=result.get("visual_hint_latex"),
+                        current_understanding_level=result.get("current_understanding_level", 0),
+                    )
+                elif msg_type == "understanding_update":
+                    yield UnderstandingUpdate(
+                        level=result["level"],
+                        reasoning=result["reasoning"],
+                        topic=result["topic"],
                     )
 
         # 完了メッセージを送信

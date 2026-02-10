@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  performOperation,
-  type MathOperation,
-} from "@/lib/math/computeEngine";
+import { type MathOperation, performOperation } from "@/lib/math/computeEngine";
 
 const operations: { label: string; op: MathOperation }[] = [
   { label: "展開", op: "expand" },

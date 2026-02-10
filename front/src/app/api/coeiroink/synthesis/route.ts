@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { Coeiroink, type Speaker } from "@/lib/tts/coeiroink";
 
 interface SynthesisRequest {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     console.error("COEIROINK synthesis error:", error);
     return NextResponse.json(
       { error: "Failed to synthesize speech from COEIROINK" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import katex from "katex";
+import { useEffect, useRef } from "react";
 
 // remark-math adds math nodes for $$ blocks
 interface MathMdastNode {

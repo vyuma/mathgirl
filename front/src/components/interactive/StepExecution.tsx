@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import katex from "katex";
+import { useEffect, useRef, useState } from "react";
 
 type Step = {
   label: string;

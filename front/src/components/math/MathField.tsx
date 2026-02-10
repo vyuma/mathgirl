@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface MathFieldProps {
   value?: string;
@@ -31,7 +31,7 @@ export default function MathField({
   // Set value
   useEffect(() => {
     const el = ref.current as any;
-    if (el && el.setValue && value !== undefined) {
+    if (el?.setValue && value !== undefined) {
       const currentValue = el.value;
       if (currentValue !== value) {
         el.setValue(value, { suppressChangeNotifications: true });

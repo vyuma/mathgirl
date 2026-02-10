@@ -4,10 +4,34 @@ import { usePanelStore } from "@/stores/panelStore";
 
 type PanelId = "text" | "note" | "log";
 
-const tabs: { id: PanelId; label: string }[] = [
-  { id: "text", label: "テキスト" },
-  { id: "note", label: "ノート" },
-  { id: "log", label: "ログ" },
+const tabs: {
+  id: PanelId;
+  label: string;
+  icon: string;
+  activeBg: string;
+  activeText: string;
+}[] = [
+  {
+    id: "text",
+    label: "テキスト",
+    icon: "\u{1F4D6}",
+    activeBg: "bg-amber-100",
+    activeText: "text-amber-700",
+  },
+  {
+    id: "note",
+    label: "ノート",
+    icon: "\u{270F}\u{FE0F}",
+    activeBg: "bg-yellow-100",
+    activeText: "text-yellow-700",
+  },
+  {
+    id: "log",
+    label: "おはなし",
+    icon: "\u{1F4AC}",
+    activeBg: "bg-orange-100",
+    activeText: "text-orange-700",
+  },
 ];
 
 export default function MobileTabBar() {
@@ -33,20 +57,30 @@ export default function MobileTabBar() {
   };
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 flex md:hidden bg-white border-t">
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => handleTabClick(id)}
-          className={`flex-1 py-3 text-sm font-medium transition ${
-            activeTab === id && panels[id].visible
-              ? "text-amber-600 border-t-2 border-amber-500"
-              : "text-gray-500"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div
+      className="absolute bottom-0 left-0 right-0 z-30 flex md:hidden border-t border-amber-200/50"
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(255,251,235,0.98) 0%, rgba(254,243,199,0.95) 100%)",
+      }}
+    >
+      {tabs.map(({ id, label, icon, activeBg, activeText }) => {
+        const isActive = activeTab === id && panels[id].visible;
+        return (
+          <button
+            key={id}
+            onClick={() => handleTabClick(id)}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all ${
+              isActive
+                ? `${activeText} ${activeBg} rounded-t-xl`
+                : "text-amber-400"
+            }`}
+          >
+            <span className="text-lg">{icon}</span>
+            <span className="text-xs font-medium">{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

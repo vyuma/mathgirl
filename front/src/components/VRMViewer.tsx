@@ -1,9 +1,9 @@
 "use client";
 
+import { type VRM, VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin, VRM } from "@pixiv/three-vrm";
 
 export default function VRMViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export default function VRMViewer() {
       50,
       container.clientWidth / container.clientHeight,
       0.1,
-      20.0
+      20.0,
     );
     camera.position.set(0, 1.2, 2.2);
     camera.lookAt(0, 1.2, 0);
@@ -75,22 +75,22 @@ export default function VRMViewer() {
         const vrm = gltf.userData.vrm;
         scene.add(vrm.scene);
         vrm.scene.rotation.y = Math.PI;
-        
+
         const bbox = new THREE.Box3().setFromObject(vrm.scene);
         vrm.scene.position.y = -bbox.min.y;
 
         vrm.scene.scale.set(1.2, 1.2, 1.2);
-        
+
         currentVrm = vrm;
         vrmRef.current = vrm;
       },
       undefined,
       (error) => {
         console.error(error);
-      }
+      },
     );
 
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
     const animate = () => {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -107,8 +107,8 @@ export default function VRMViewer() {
       if (renderer) {
         renderer.dispose();
       }
-      if(vrmUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(vrmUrl)
+      if (vrmUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(vrmUrl);
       }
     };
   }, [vrmUrl]);

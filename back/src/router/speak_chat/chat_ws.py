@@ -5,8 +5,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage, CompleteMessage
 from service.tts import StreamingTTS
+from agent.session_chat import SessionAgent
 from db.engine import async_session_factory
-from db.repositories import MessageRepository
+from db.repositories import MessageRepository, SessionRepository
 
 router = APIRouter()
 
@@ -41,7 +42,7 @@ async def chat_websocket(websocket: WebSocket):
     """
     await websocket.accept()
 
-    streaming_tts = StreamingTTS()
+    streaming_tts = StreamingTTS(agent=SessionAgent())
 
     try:
         while True:
@@ -78,12 +79,27 @@ async def chat_websocket(websocket: WebSocket):
                             request.session_id, "user", last_user_msg.content
                         )
 
+                # session_idがある場合、DBからtext_contentを取得
+                text_content = None
+                if request.session_id:
+                    try:
+                        async with async_session_factory() as db:
+                            session_repo = SessionRepository(db)
+                            session_obj = await session_repo.get_by_id(
+                                uuid.UUID(request.session_id)
+                            )
+                            if session_obj:
+                                text_content = session_obj.text_content
+                    except Exception as e:
+                        print(f"Failed to fetch session text_content: {e}")
+
                 # ストリーミング応答を送信
                 async for message in streaming_tts.stream_chat_with_audio(
                     messages=request.messages,
                     goal=request.goal,
                     speaker_uuid=request.speaker_uuid,
                     style_id=request.style_id,
+                    text_content=text_content,
                 ):
                     await websocket.send_text(message.model_dump_json())
 

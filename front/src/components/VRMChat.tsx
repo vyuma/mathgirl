@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { VRMLoaderPlugin } from "@pixiv/three-vrm";
+import { useCallback, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 
 type Props = {
   isSpeaking: boolean;
@@ -65,7 +65,7 @@ export default function VRMChat({ isSpeaking }: Props) {
       50,
       SCREEN_WIDTH / SCREEN_HEIGHT,
       0.1,
-      20.0
+      20.0,
     );
     camera.position.set(0, 1.5, 1.8);
     camera.lookAt(0, 1.5, 0);
@@ -222,7 +222,7 @@ export default function VRMChat({ isSpeaking }: Props) {
         animate();
       },
       undefined,
-      (error) => console.error("VRMロードエラー:", error)
+      (error) => console.error("VRMロードエラー:", error),
     );
 
     return () => {

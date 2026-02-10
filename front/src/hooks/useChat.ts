@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useDialogStore } from "@/stores/dialogStore";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useBlackboardStore } from "@/stores/blackboardStore";
-import {
-  useChatWebSocket,
-  type ChatMessage,
-  type TextChunk,
-  type AudioChunk,
-  type CompleteMessage,
-} from "@/lib/websocket";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStreamingAudio } from "@/lib/audio";
 import { useSpeechRecognition } from "@/lib/stt";
-import { useCoeiroink, type Speaker } from "@/lib/tts/useCoeiroink";
+import { type Speaker, useCoeiroink } from "@/lib/tts/useCoeiroink";
+import {
+  type AudioChunk,
+  type ChatMessage,
+  type CompleteMessage,
+  type TextChunk,
+  useChatWebSocket,
+} from "@/lib/websocket";
+import { useBlackboardStore } from "@/stores/blackboardStore";
+import { useDialogStore } from "@/stores/dialogStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useUnderstandingStore } from "@/stores/understandingStore";
 
 export function useChat() {
   const {
@@ -25,6 +26,7 @@ export function useChat() {
   } = useDialogStore();
   const { sessionId } = useSessionStore();
   const { addFormula } = useBlackboardStore();
+  const { setLevel, setPendingQuestion } = useUnderstandingStore();
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
@@ -55,14 +57,14 @@ export function useChat() {
       }
       setStreamingText(sortedTexts.join(""));
     },
-    [setStreamingText]
+    [setStreamingText],
   );
 
   const handleAudioChunk = useCallback(
     (chunk: AudioChunk) => {
       addAudioChunk(chunk.index, chunk.audio_base64);
     },
-    [addAudioChunk]
+    [addAudioChunk],
   );
 
   const handleComplete = useCallback(
@@ -72,7 +74,7 @@ export function useChat() {
       textChunksRef.current.clear();
       setIsTurnComplete(true);
     },
-    [addMessage, clearStreaming]
+    [addMessage, clearStreaming],
   );
 
   const handleWsError = useCallback(
@@ -80,7 +82,7 @@ export function useChat() {
       clearStreaming();
       textChunksRef.current.clear();
     },
-    [clearStreaming]
+    [clearStreaming],
   );
 
   const {
@@ -109,6 +111,15 @@ export function useChat() {
         contentType: "suggest_operation",
         metadata: { latex: data.latex, operation: data.operation },
       });
+    },
+    onSocraticQuestion: (data) => {
+      setPendingQuestion({
+        questionIfCorrect: data.question_if_correct,
+        questionIfStuck: data.question_if_stuck,
+      });
+    },
+    onUnderstandingUpdate: (data) => {
+      setLevel(data.level, data.topic);
     },
   });
 
@@ -149,7 +160,15 @@ export function useChat() {
   const handleSend = useCallback(
     async (text?: string) => {
       const userText = (text || transcript).trim();
-      if (!userText || !selectedSpeaker) return;
+      if (!userText) {
+        console.warn("[useChat] Empty text, not sending");
+        return;
+      }
+
+      if (!isConnected) {
+        console.warn("[useChat] WebSocket not connected, cannot send");
+        return;
+      }
 
       addMessage({ role: "user", content: userText });
       clearTranscript();
@@ -159,21 +178,23 @@ export function useChat() {
       setIsSpeaking(true);
       setIsProcessing(true);
 
-      if (isConnected) {
-        const chatMessages: ChatMessage[] = [
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
-          { role: "user" as const, content: userText },
-        ];
-        const currentStyleId =
-          selectedSpeaker.styles[selectedStyleIndex]?.id ?? 0;
-        sendChatRequest(
-          chatMessages,
-          selectedSpeaker.speaker_uuid,
-          currentStyleId,
-          undefined,
-          sessionId || undefined
-        );
-      }
+      const chatMessages: ChatMessage[] = [
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user" as const, content: userText },
+      ];
+
+      // スピーカーが未選択でもデフォルト値で送信
+      const speakerUuid = selectedSpeaker?.speaker_uuid ?? "";
+      const currentStyleId =
+        selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
+
+      sendChatRequest(
+        chatMessages,
+        speakerUuid,
+        currentStyleId,
+        undefined,
+        sessionId || undefined,
+      );
     },
     [
       transcript,
@@ -186,9 +207,8 @@ export function useChat() {
       clearTranscript,
       stopListening,
       resetAudio,
-      setIsProcessing,
       sendChatRequest,
-    ]
+    ],
   );
 
   const handleStart = useCallback(() => {

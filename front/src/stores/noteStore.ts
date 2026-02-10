@@ -1,58 +1,23 @@
 import { create } from "zustand";
 
-export type NoteBlock =
-  | { blockId: string; type: "markdown"; content: string }
-  | { blockId: string; type: "mathlive"; latex: string; mathjson?: unknown };
-
 interface NoteState {
-  blocks: NoteBlock[];
+  content: string;
   isDirty: boolean;
-  focusedBlockId: string | null;
+  viewMode: "edit" | "preview" | "split";
 
-  setBlocks: (blocks: NoteBlock[]) => void;
-  addBlock: (block: NoteBlock, afterId?: string) => void;
-  updateBlock: (blockId: string, updates: Partial<NoteBlock>) => void;
-  removeBlock: (blockId: string) => void;
-  setFocusedBlock: (blockId: string | null) => void;
+  setContent: (content: string) => void;
+  setViewMode: (mode: "edit" | "preview" | "split") => void;
   setDirty: (val: boolean) => void;
   reset: () => void;
 }
 
-let blockCounter = 0;
-export function generateBlockId(): string {
-  return `block_${Date.now()}_${++blockCounter}`;
-}
-
 export const useNoteStore = create<NoteState>((set) => ({
-  blocks: [],
+  content: "",
   isDirty: false,
-  focusedBlockId: null,
+  viewMode: "edit",
 
-  setBlocks: (blocks) => set({ blocks, isDirty: false }),
-  addBlock: (block, afterId) =>
-    set((state) => {
-      if (!afterId) {
-        return { blocks: [...state.blocks, block], isDirty: true };
-      }
-      const idx = state.blocks.findIndex((b) => b.blockId === afterId);
-      const newBlocks = [...state.blocks];
-      newBlocks.splice(idx + 1, 0, block);
-      return { blocks: newBlocks, isDirty: true };
-    }),
-  updateBlock: (blockId, updates) =>
-    set((state) => ({
-      blocks: state.blocks.map((b) =>
-        b.blockId === blockId ? { ...b, ...updates } : b
-      ) as NoteBlock[],
-      isDirty: true,
-    })),
-  removeBlock: (blockId) =>
-    set((state) => ({
-      blocks: state.blocks.filter((b) => b.blockId !== blockId),
-      isDirty: true,
-    })),
-  setFocusedBlock: (blockId) => set({ focusedBlockId: blockId }),
+  setContent: (content) => set({ content, isDirty: true }),
+  setViewMode: (viewMode) => set({ viewMode }),
   setDirty: (val) => set({ isDirty: val }),
-  reset: () =>
-    set({ blocks: [], isDirty: false, focusedBlockId: null }),
+  reset: () => set({ content: "", isDirty: false, viewMode: "edit" }),
 }));

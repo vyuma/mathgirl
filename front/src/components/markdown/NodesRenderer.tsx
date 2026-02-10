@@ -1,13 +1,13 @@
 "use client";
 
-import type { RootContent, PhrasingContent } from "mdast";
-import ParagraphNode from "./nodeComponents/ParagraphNode";
-import HeadingNode from "./nodeComponents/HeadingNode";
+import type { PhrasingContent, RootContent } from "mdast";
 import CodeNode from "./nodeComponents/CodeNode";
-import MathNode from "./nodeComponents/MathNode";
+import HeadingNode from "./nodeComponents/HeadingNode";
 import InlineMathNode from "./nodeComponents/InlineMathNode";
-import ListNode from "./nodeComponents/ListNode";
 import LinkNode from "./nodeComponents/LinkNode";
+import ListNode from "./nodeComponents/ListNode";
+import MathNode from "./nodeComponents/MathNode";
+import ParagraphNode from "./nodeComponents/ParagraphNode";
 import TextNode from "./nodeComponents/TextNode";
 
 type MdastNode = RootContent | PhrasingContent;
@@ -89,10 +89,7 @@ function NodeRenderer({ node }: { node: MdastNode }) {
                 {row.children.map((cell, j) => {
                   const Tag = i === 0 ? "th" : "td";
                   return (
-                    <Tag
-                      key={j}
-                      className="border border-gray-300 px-2 py-1"
-                    >
+                    <Tag key={j} className="border border-gray-300 px-2 py-1">
                       <NodesRenderer nodes={cell.children} />
                     </Tag>
                   );

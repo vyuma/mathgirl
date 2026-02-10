@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  AudioChunk,
+  BlackboardUpdate,
   ChatMessage,
   ChatRequest,
-  WSMessage,
-  TextChunk,
-  AudioChunk,
   CompleteMessage,
-  BlackboardUpdate,
-  SuggestOperation,
-  HintMessage,
   ConnectionState,
+  HintMessage,
+  SocraticQuestion,
+  SuggestOperation,
+  TextChunk,
+  UnderstandingUpdate,
+  WSMessage,
 } from "./types";
 
 type UseChatWebSocketOptions = {
@@ -23,14 +25,22 @@ type UseChatWebSocketOptions = {
   onBlackboardUpdate?: (data: BlackboardUpdate) => void;
   onSuggestOperation?: (data: SuggestOperation) => void;
   onHint?: (data: HintMessage) => void;
+  onSocraticQuestion?: (data: SocraticQuestion) => void;
+  onUnderstandingUpdate?: (data: UnderstandingUpdate) => void;
 };
 
 function getDefaultWsUrl(): string {
+  // 環境変数が設定されている場合はそれを使用
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
   if (typeof window === "undefined") {
     return "ws://localhost:8080/ws/chat";
   }
+  // フォールバック: バックエンドポート8080を使用
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/ws/chat`;
+  const host = window.location.hostname;
+  return `${protocol}//${host}:8080/ws/chat`;
 }
 
 export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
@@ -43,6 +53,8 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     onBlackboardUpdate,
     onSuggestOperation,
     onHint,
+    onSocraticQuestion,
+    onUnderstandingUpdate,
   } = options;
 
   const [connectionState, setConnectionState] =
@@ -50,7 +62,7 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
   const [isProcessing, setIsProcessing] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+    null,
   );
 
   const connect = useCallback(() => {
@@ -105,6 +117,12 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
           case "hint":
             onHint?.(message);
             break;
+          case "socratic_question":
+            onSocraticQuestion?.(message);
+            break;
+          case "understanding_update":
+            onUnderstandingUpdate?.(message);
+            break;
         }
       } catch (e) {
         console.error("Failed to parse message:", e);
@@ -121,6 +139,8 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     onBlackboardUpdate,
     onSuggestOperation,
     onHint,
+    onSocraticQuestion,
+    onUnderstandingUpdate,
   ]);
 
   const disconnect = useCallback(() => {
@@ -143,7 +163,7 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
       speakerUuid: string,
       styleId: number,
       goal?: string,
-      sessionId?: string
+      sessionId?: string,
     ) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         onError?.("WebSocket not connected");
@@ -163,7 +183,7 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
       wsRef.current.send(JSON.stringify(request));
       return true;
     },
-    [onError]
+    [onError],
   );
 
   useEffect(() => {
