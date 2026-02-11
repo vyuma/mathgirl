@@ -138,9 +138,7 @@ export default function SpeechInputBar({
           onChange={(e) => setManualText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            isListening
-              ? "音声を認識中..."
-              : "テキストを入力またはマイクで話す"
+            isListening ? "音声を認識中..." : "テキストを入力またはマイクで話す"
           }
           className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-300 outline-none px-2"
         />
@@ -156,12 +154,7 @@ export default function SpeechInputBar({
               : "bg-slate-100 text-slate-300 cursor-not-allowed"
           }`}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
           </svg>
         </button>

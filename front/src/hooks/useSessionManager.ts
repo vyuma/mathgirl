@@ -16,7 +16,10 @@ export function useSessionManager() {
 
   const startSession = useCallback(
     async (textContent?: string) => {
-      console.log("[useSessionManager] startSession called with textContent:", textContent);
+      console.log(
+        "[useSessionManager] startSession called with textContent:",
+        textContent,
+      );
       sessionStore.setStatus("starting");
 
       try {
@@ -29,7 +32,10 @@ export function useSessionManager() {
         if (!res.ok) throw new Error("Failed to create session");
 
         const data = await res.json();
-        console.log("[useSessionManager] Setting session with textContent:", textContent || null);
+        console.log(
+          "[useSessionManager] Setting session with textContent:",
+          textContent || null,
+        );
         sessionStore.setSession(data.session_id, textContent || null);
 
         // Reset other stores
@@ -67,7 +73,13 @@ export function useSessionManager() {
     noteStore.reset();
     blackboardStore.clearFormulas();
     understandingStore.reset();
-  }, [sessionStore, dialogStore, noteStore, blackboardStore, understandingStore]);
+  }, [
+    sessionStore,
+    dialogStore,
+    noteStore,
+    blackboardStore,
+    understandingStore,
+  ]);
 
   return {
     sessionId: sessionStore.sessionId,

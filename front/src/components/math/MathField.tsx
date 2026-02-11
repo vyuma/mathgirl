@@ -1,5 +1,6 @@
 "use client";
 
+import type { MathfieldElement } from "mathlive";
 import { useEffect, useRef } from "react";
 
 interface MathFieldProps {
@@ -15,42 +16,39 @@ export default function MathField({
   onChange,
   className = "",
 }: MathFieldProps) {
-  const ref = useRef<HTMLElement>(null);
+  const ref = useRef<MathfieldElement>(null);
   const initialized = useRef(false);
 
-  // Load MathLive dynamically
+  // Load MathLive dynamically (registers custom element, browser-only)
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
-    import("mathlive").then(() => {
-      // MathLive registers the custom element
-    });
+    import("mathlive");
   }, []);
 
-  // Set value
+  // Set value programmatically (suppress change notifications to avoid feedback loop)
   useEffect(() => {
-    const el = ref.current as any;
+    const el = ref.current;
     if (el?.setValue && value !== undefined) {
-      const currentValue = el.value;
-      if (currentValue !== value) {
-        el.setValue(value, { suppressChangeNotifications: true });
+      if (el.value !== value) {
+        el.setValue(value, { silenceNotifications: true });
       }
     }
   }, [value]);
 
   // Handle input events
   useEffect(() => {
-    const el = ref.current as any;
+    const el = ref.current;
     if (!el || readOnly || !onChange) return;
 
     const handleInput = () => {
       const latex = el.value;
-      let mathJson;
+      let mathJson: unknown;
       try {
         mathJson = el.getValue("math-json");
       } catch {
-        // math-json not available
+        // math-json not available (Compute Engine not loaded)
       }
       onChange(latex, mathJson);
     };

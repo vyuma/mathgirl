@@ -112,9 +112,7 @@ export default function DialogLogPanel() {
           <p className="text-slate-600 font-medium mb-1">
             問いに問いで返す。それが私のやり方だ。
           </p>
-          <p className="text-slate-400 text-sm">
-            答えは自分で見つけるものだ
-          </p>
+          <p className="text-slate-400 text-sm">答えは自分で見つけるものだ</p>
         </div>
       )}
 

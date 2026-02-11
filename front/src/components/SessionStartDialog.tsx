@@ -18,7 +18,10 @@ export default function SessionStartDialog({
   if (status !== "idle") return null;
 
   const handleStart = async () => {
-    console.log("[SessionStartDialog] handleStart called, textContent:", textContent);
+    console.log(
+      "[SessionStartDialog] handleStart called, textContent:",
+      textContent,
+    );
     setIsLoading(true);
     const sessionId = await startSession(textContent || undefined);
     console.log("[SessionStartDialog] startSession returned:", sessionId);
@@ -126,7 +129,6 @@ export default function SessionStartDialog({
           )}
         </div>
       </div>
-
     </div>
   );
 }
