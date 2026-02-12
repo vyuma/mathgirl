@@ -1,10 +1,36 @@
 import json
+import uuid
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage
+from auth.dependencies import verify_ws_token
+from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage, CompleteMessage
 from service.tts import StreamingTTS
+from agent.session_chat import SessionAgent
+from db.engine import async_session_factory
+from db.repositories import MessageRepository, SessionRepository
 
 router = APIRouter()
+
+
+async def _save_message(session_id_str: str | None, role: str, content: str, content_type: str = "text", metadata: dict | None = None):
+    """セッションIDがある場合、メッセージをDBに保存"""
+    if not session_id_str:
+        return
+    try:
+        session_id = uuid.UUID(session_id_str)
+        async with async_session_factory() as db:
+            repo = MessageRepository(db)
+            await repo.create(
+                session_id=session_id,
+                role=role,
+                content=content,
+                content_type=content_type,
+                metadata=metadata,
+            )
+            await db.commit()
+    except Exception as e:
+        print(f"Failed to save message: {e}")
 
 
 @router.websocket("/ws/chat")
@@ -15,9 +41,20 @@ async def chat_websocket(websocket: WebSocket):
     クライアントからのチャットリクエストを受け取り、
     テキストと音声をストリーミングで返す
     """
+    # Authenticate before accepting
+    token = websocket.query_params.get("token")
+    async with async_session_factory() as db:
+        user = await verify_ws_token(token, db)
+        await db.commit()
+
+    if user is None:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+
+    user_id = user.user_id
     await websocket.accept()
 
-    streaming_tts = StreamingTTS()
+    streaming_tts = StreamingTTS(agent=SessionAgent())
 
     try:
         while True:
@@ -40,7 +77,48 @@ async def chat_websocket(websocket: WebSocket):
                     goal=data.get("goal"),
                     speaker_uuid=data["speaker_uuid"],
                     style_id=data.get("style_id", 0),
+                    session_id=data.get("session_id"),
                 )
+
+                # session_id 所有者チェック
+                if request.session_id:
+                    try:
+                        async with async_session_factory() as db:
+                            session_repo = SessionRepository(db)
+                            session_obj = await session_repo.get_by_id(
+                                uuid.UUID(request.session_id)
+                            )
+                            if session_obj and session_obj.user_id != user_id:
+                                error = ErrorMessage(message="Forbidden: not your session")
+                                await websocket.send_text(error.model_dump_json())
+                                continue
+                    except Exception as e:
+                        print(f"Failed to verify session ownership: {e}")
+
+                # ユーザーの最新メッセージをDBに保存
+                if request.messages:
+                    last_user_msg = next(
+                        (m for m in reversed(request.messages) if m.role == "user"),
+                        None,
+                    )
+                    if last_user_msg:
+                        await _save_message(
+                            request.session_id, "user", last_user_msg.content
+                        )
+
+                # session_idがある場合、DBからtext_contentを取得
+                text_content = None
+                if request.session_id:
+                    try:
+                        async with async_session_factory() as db:
+                            session_repo = SessionRepository(db)
+                            session_obj = await session_repo.get_by_id(
+                                uuid.UUID(request.session_id)
+                            )
+                            if session_obj:
+                                text_content = session_obj.text_content
+                    except Exception as e:
+                        print(f"Failed to fetch session text_content: {e}")
 
                 # ストリーミング応答を送信
                 async for message in streaming_tts.stream_chat_with_audio(
@@ -48,8 +126,15 @@ async def chat_websocket(websocket: WebSocket):
                     goal=request.goal,
                     speaker_uuid=request.speaker_uuid,
                     style_id=request.style_id,
+                    text_content=text_content,
                 ):
                     await websocket.send_text(message.model_dump_json())
+
+                    # 完了メッセージでアシスタント応答をDBに保存
+                    if isinstance(message, CompleteMessage):
+                        await _save_message(
+                            request.session_id, "assistant", message.full_text
+                        )
 
             except json.JSONDecodeError:
                 error = ErrorMessage(message="Invalid JSON")

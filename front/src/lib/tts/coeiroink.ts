@@ -11,8 +11,7 @@ export class Coeiroink implements TTS<Speaker> {
 
   constructor(options: { apiUrl?: string; speaker?: Speaker }) {
     this.client = createClient<paths>({
-      baseUrl:
-        (process.env.COEIROINK_API_URL),
+      baseUrl: process.env.COEIROINK_API_URL,
     });
     this.speaker = options.speaker ?? undefined;
   }

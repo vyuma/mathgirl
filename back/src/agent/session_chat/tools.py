@@ -1,0 +1,98 @@
+"""LangChain Tool definitions for session chat agent."""
+from typing import Any
+
+from langchain_core.tools import tool
+
+
+# Tool results are collected here and sent via WebSocket by the caller
+_tool_results: list[dict[str, Any]] = []
+
+
+def get_and_clear_tool_results() -> list[dict[str, Any]]:
+    global _tool_results
+    results = _tool_results.copy()
+    _tool_results.clear()
+    return results
+
+
+@tool
+def write_to_blackboard(latex: str, explanation: str) -> str:
+    """黒板に数式を表示する。学習者に見せたい数式をLaTeX形式で指定する。
+
+    Args:
+        latex: LaTeX形式の数式
+        explanation: この数式を表示する理由の説明
+    """
+    _tool_results.append({
+        "type": "blackboard_update",
+        "latex": latex,
+        "explanation": explanation,
+    })
+    return f"黒板に {latex} を表示しました"
+
+
+@tool
+def suggest_operation(latex: str, operation: str, explanation: str) -> str:
+    """学習者に式操作を提案する。
+
+    Args:
+        latex: 操作対象の数式（LaTeX形式）
+        operation: 操作の種類（expand/factor/simplify/derivative/integrate）
+        explanation: この操作を提案する理由
+    """
+    _tool_results.append({
+        "type": "suggest_operation",
+        "latex": latex,
+        "operation": operation,
+        "explanation": explanation,
+    })
+    return f"{operation} を提案しました: {latex}"
+
+
+@tool
+def pose_question(
+    question_text: str,
+    question_if_correct: str,
+    question_if_stuck: str,
+    visual_hint_latex: str = "",
+    current_understanding_level: int = 0,
+) -> str:
+    """ソクラテス式の問いを構造化して提示する。正解時と詰まった時の次の問いも用意する。
+
+    Args:
+        question_text: 学習者に投げかける問い
+        question_if_correct: 学習者が正しく答えた場合の次の問い
+        question_if_stuck: 学習者が詰まった場合のヒントとなる問い
+        visual_hint_latex: 視覚的ヒントとなるLaTeX数式（任意）
+        current_understanding_level: 現在の推定理解度（0-5）
+    """
+    _tool_results.append({
+        "type": "socratic_question",
+        "question_text": question_text,
+        "question_if_correct": question_if_correct,
+        "question_if_stuck": question_if_stuck,
+        "visual_hint_latex": visual_hint_latex or None,
+        "current_understanding_level": current_understanding_level,
+    })
+    return f"問いを提示しました: {question_text}"
+
+
+@tool
+def estimate_understanding(level: int, reasoning: str, topic: str) -> str:
+    """学習者の理解度を評価・更新する。対話の節目で使用する。
+
+    Args:
+        level: 理解度レベル（0-5）
+        reasoning: この評価に至った根拠
+        topic: 評価対象のトピック
+    """
+    _tool_results.append({
+        "type": "understanding_update",
+        "level": level,
+        "reasoning": reasoning,
+        "topic": topic,
+    })
+    return f"理解度を更新しました: {topic} = Lv{level}"
+
+
+SESSION_TOOLS = [write_to_blackboard, suggest_operation, pose_question, estimate_understanding]
