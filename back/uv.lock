@@ -1003,6 +1003,7 @@ dependencies = [
     { name = "langchain-google-genai" },
     { name = "maai" },
     { name = "numpy" },
+    { name = "pyyaml" },
     { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
@@ -1017,6 +1018,7 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=2.0.0" },
     { name = "maai", specifier = ">=0.0.6" },
     { name = "numpy", specifier = ">=1.26.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0" },
 ]
 
