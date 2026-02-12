@@ -50,6 +50,24 @@ class SessionRepository:
         await self.db.flush()
         return session
 
+    async def delete(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        session = await self.get_by_id(session_id)
+        if session is None or session.user_id != user_id:
+            return False
+        await self.db.delete(session)
+        await self.db.flush()
+        return True
+
+    async def update_title(
+        self, session_id: uuid.UUID, title: str
+    ) -> Session | None:
+        session = await self.get_by_id(session_id)
+        if session is None:
+            return None
+        session.title = title
+        await self.db.flush()
+        return session
+
     async def update_meta_info(
         self, session_id: uuid.UUID, meta_info: dict
     ) -> Session | None:

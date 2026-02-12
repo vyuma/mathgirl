@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 class SessionCreate(BaseModel):
     text_content: str | None = None
     title: str | None = None
-    user_id: UUID | None = None  # v1: uses default user
 
 
 class SessionResponse(BaseModel):
@@ -52,6 +51,20 @@ class MessageResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Material ---
+
+class MaterialListItem(BaseModel):
+    id: str
+    title: str
+    description: str
+    difficulty: int | None = None
+    tags: list[str] = []
+
+
+class MaterialDetail(MaterialListItem):
+    content: str  # Markdown本文
+
+
 # --- Note ---
 
 class NoteBlock(BaseModel):
@@ -78,3 +91,16 @@ class NoteResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- OCR ---
+
+class OCRRequest(BaseModel):
+    image_base64: str
+    mime_type: str
+
+
+class OCRResponse(BaseModel):
+    markdown: str
+    success: bool
+    error: str | None = None

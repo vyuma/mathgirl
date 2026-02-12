@@ -2,7 +2,7 @@
 
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log";
+type PanelId = "text" | "note" | "log" | "blackboard";
 
 const tabs: {
   id: PanelId;
@@ -31,6 +31,13 @@ const tabs: {
     icon: "\u{1F4AC}",
     activeBg: "bg-orange-100",
     activeText: "text-orange-700",
+  },
+  {
+    id: "blackboard",
+    label: "数式",
+    icon: "\u{1F58B}\u{FE0F}",
+    activeBg: "bg-indigo-100",
+    activeText: "text-indigo-700",
   },
 ];
 

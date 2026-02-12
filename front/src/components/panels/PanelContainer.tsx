@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Rnd } from "react-rnd";
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log";
+type PanelId = "text" | "note" | "log" | "blackboard";
 
 const panelConfig: Record<
   PanelId,
@@ -41,6 +41,14 @@ const panelConfig: Record<
     iconBg: "bg-orange-400",
     accentColor: "bg-orange-300",
   },
+  blackboard: {
+    title: "数式ボード",
+    icon: "🖋️",
+    gradient: "from-indigo-50 to-violet-50",
+    borderColor: "border-indigo-200/60",
+    iconBg: "bg-indigo-400",
+    accentColor: "bg-indigo-300",
+  },
 };
 
 export default function PanelContainer({
@@ -70,9 +78,6 @@ export default function PanelContainer({
       <div className="absolute inset-0 top-16 bottom-14 z-20 overflow-hidden">
         <div
           className={`h-full bg-gradient-to-b ${style.gradient} backdrop-blur-sm`}
-          style={{
-            background: `linear-gradient(180deg, rgba(255,251,235,0.97) 0%, rgba(254,243,199,0.95) 100%)`,
-          }}
         >
           {/* Header */}
           <div
@@ -88,7 +93,7 @@ export default function PanelContainer({
               <span className="text-lg">{style.icon}</span>
             </div>
             <div>
-              <span className="font-semibold text-amber-900 text-base">
+              <span className="font-semibold text-base text-gray-800">
                 {style.title}
               </span>
             </div>
@@ -162,13 +167,13 @@ export default function PanelContainer({
             >
               <span className="text-base drop-shadow-sm">{style.icon}</span>
             </div>
-            <span className="font-semibold text-amber-800 tracking-wide">
+            <span className="font-semibold tracking-wide text-gray-800">
               {style.title}
             </span>
           </div>
           <button
             onClick={() => usePanelStore.getState().togglePanel(panel)}
-            className="w-7 h-7 rounded-full bg-white/70 hover:bg-white flex items-center justify-center text-amber-400 hover:text-amber-600 transition-all shadow-sm hover:shadow"
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm hover:shadow bg-white/70 hover:bg-white text-gray-400 hover:text-gray-600"
           >
             <svg
               width="10"
@@ -192,7 +197,8 @@ export default function PanelContainer({
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.03]"
           style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, rgba(180, 140, 80, 0.5) 1px, transparent 0)`,
+            backgroundImage:
+              "radial-gradient(circle at 2px 2px, rgba(180, 140, 80, 0.5) 1px, transparent 0)",
             backgroundSize: "16px 16px",
           }}
         />

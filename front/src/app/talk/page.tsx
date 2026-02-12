@@ -1,6 +1,6 @@
 "use client";
 
-import BlackboardOverlay from "@/components/BlackboardOverlay";
+import BlackboardPanel from "@/components/BlackboardPanel";
 import DialogLogPanel from "@/components/panels/DialogLogPanel";
 import IconBar from "@/components/panels/IconBar";
 import MobileTabBar from "@/components/panels/MobileTabBar";
@@ -37,8 +37,10 @@ export default function MainPage() {
         <VRMChat isSpeaking={isSpeaking} />
       </div>
 
-      {/* 黒板オーバーレイ */}
-      <BlackboardOverlay />
+      {/* 黒板パネル */}
+      <PanelContainer panel="blackboard">
+        <BlackboardPanel />
+      </PanelContainer>
 
       {/* トップバー */}
       <TopBar />

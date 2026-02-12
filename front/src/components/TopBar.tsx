@@ -6,14 +6,18 @@ import { useSessionManager } from "@/hooks/useSessionManager";
 
 export default function TopBar() {
   const router = useRouter();
-  const { status, endSession, resetSession } = useSessionManager();
+  const { status, sessionId, endSession, resetSession } = useSessionManager();
   const [showMenu, setShowMenu] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   const handleEnd = async () => {
+    const endedSessionId = sessionId;
     await endSession();
     resetSession();
     setShowEndConfirm(false);
+    if (endedSessionId) {
+      router.push(`/history/${endedSessionId}`);
+    }
   };
 
   return (

@@ -9,9 +9,18 @@ export default function AuthButton() {
     return (
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur rounded-full shadow-sm text-sm text-gray-600">
-          <span className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">
-            {session.data.user.name?.charAt(0)?.toUpperCase() ?? "?"}
-          </span>
+          {session.data.user.image ? (
+            <img
+              src={session.data.user.image}
+              alt=""
+              className="w-7 h-7 rounded-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <span className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">
+              {session.data.user.name?.charAt(0)?.toUpperCase() ?? "?"}
+            </span>
+          )}
           <span className="font-medium">{session.data.user.name}</span>
         </div>
         <button

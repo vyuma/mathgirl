@@ -64,64 +64,95 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const intentionalCloseRef = useRef(false);
+  const idTokenRef = useRef<string | undefined>(undefined);
+  const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 10;
 
-  const connect = useCallback(() => {
+  // コールバックを最新の値で参照するためのref
+  const callbacksRef = useRef(options);
+  callbacksRef.current = options;
+
+  const connectInternal = useCallback((idToken?: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
+    // 既存の接続試行をクリーンアップ
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     setConnectionState("connecting");
 
-    const wsUrl = url || getDefaultWsUrl();
+    let wsUrl = url || getDefaultWsUrl();
+    if (idToken) {
+      const sep = wsUrl.includes("?") ? "&" : "?";
+      wsUrl = `${wsUrl}${sep}token=${encodeURIComponent(idToken)}`;
+    }
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       setConnectionState("connected");
+      reconnectAttemptsRef.current = 0;
     };
 
     ws.onclose = () => {
       setConnectionState("disconnected");
       wsRef.current = null;
+
+      // 意図的な切断でなければ自動再接続
+      if (!intentionalCloseRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+        reconnectAttemptsRef.current += 1;
+        console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectInternal(idTokenRef.current);
+        }, delay);
+      }
     };
 
     ws.onerror = () => {
       setConnectionState("error");
-      onError?.("WebSocket connection error");
+      callbacksRef.current.onError?.("WebSocket connection error");
     };
 
     ws.onmessage = (event) => {
       try {
         const message: WSMessage = JSON.parse(event.data);
+        const cbs = callbacksRef.current;
 
         switch (message.type) {
           case "text_chunk":
-            onTextChunk?.(message);
+            cbs.onTextChunk?.(message);
             break;
           case "audio_chunk":
-            onAudioChunk?.(message);
+            cbs.onAudioChunk?.(message);
             break;
           case "complete":
-            onComplete?.(message);
+            cbs.onComplete?.(message);
             setIsProcessing(false);
             break;
           case "error":
-            onError?.(message.message);
+            cbs.onError?.(message.message);
             setIsProcessing(false);
             break;
           case "blackboard_update":
-            onBlackboardUpdate?.(message);
+            cbs.onBlackboardUpdate?.(message);
             break;
           case "suggest_operation":
-            onSuggestOperation?.(message);
+            cbs.onSuggestOperation?.(message);
             break;
           case "hint":
-            onHint?.(message);
+            cbs.onHint?.(message);
             break;
           case "socratic_question":
-            onSocraticQuestion?.(message);
+            cbs.onSocraticQuestion?.(message);
             break;
           case "understanding_update":
-            onUnderstandingUpdate?.(message);
+            cbs.onUnderstandingUpdate?.(message);
             break;
         }
       } catch (e) {
@@ -130,20 +161,18 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
     };
 
     wsRef.current = ws;
-  }, [
-    url,
-    onTextChunk,
-    onAudioChunk,
-    onComplete,
-    onError,
-    onBlackboardUpdate,
-    onSuggestOperation,
-    onHint,
-    onSocraticQuestion,
-    onUnderstandingUpdate,
-  ]);
+  }, [url]);
+
+  const connect = useCallback((idToken?: string) => {
+    intentionalCloseRef.current = false;
+    idTokenRef.current = idToken;
+    reconnectAttemptsRef.current = 0;
+    connectInternal(idToken);
+  }, [connectInternal]);
 
   const disconnect = useCallback(() => {
+    intentionalCloseRef.current = true;
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -188,9 +217,16 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
 
   useEffect(() => {
     return () => {
-      disconnect();
+      intentionalCloseRef.current = true;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
-  }, [disconnect]);
+  }, []);
 
   return {
     connectionState,

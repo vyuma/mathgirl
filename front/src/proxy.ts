@@ -9,7 +9,7 @@ export const config = {
 export default auth((req) => {
   // ユーザーが認証済みか判断し、認証済みでなければサインインページにリダイレクトします。
   const reqUrl = new URL(req.url);
-  if (!req.auth && reqUrl?.pathname !== "/") {
+  if (!req.auth && reqUrl?.pathname !== "/" && reqUrl?.pathname !== "/signin") {
     return NextResponse.redirect(
       new URL(
         `${BASE_PATH}/signin?callbackUrl=${encodeURIComponent(

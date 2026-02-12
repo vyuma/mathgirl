@@ -37,6 +37,6 @@ class Session(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="sessions")  # noqa: F821
-    messages: Mapped[list["DialogMessage"]] = relationship(back_populates="session")  # noqa: F821
-    notes: Mapped[list["Note"]] = relationship(back_populates="session")  # noqa: F821
-    texts: Mapped[list["Text"]] = relationship(back_populates="session")  # noqa: F821
+    messages: Mapped[list["DialogMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")  # noqa: F821
+    notes: Mapped[list["Note"]] = relationship(back_populates="session", cascade="all, delete-orphan")  # noqa: F821
+    texts: Mapped[list["Text"]] = relationship(back_populates="session", cascade="all, delete-orphan")  # noqa: F821

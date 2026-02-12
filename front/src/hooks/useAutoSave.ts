@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { authFetch } from "@/lib/api/authFetch";
 import { useNoteStore } from "@/stores/noteStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -18,10 +19,10 @@ export function useAutoSave(debounceMs = 2000) {
 
     timerRef.current = setTimeout(async () => {
       try {
-        await fetch(`/api/backend/sessions/${sessionId}/note`, {
+        await authFetch(`/api/backend/sessions/${sessionId}/note`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content_text: content }),
         });
         setDirty(false);
       } catch (error) {

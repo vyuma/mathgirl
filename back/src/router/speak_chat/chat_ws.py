@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from auth.dependencies import verify_ws_token
 from model.speak_chat.chat import ChatRequest, ChatMessage, ErrorMessage, CompleteMessage
 from service.tts import StreamingTTS
 from agent.session_chat import SessionAgent
@@ -40,6 +41,17 @@ async def chat_websocket(websocket: WebSocket):
     クライアントからのチャットリクエストを受け取り、
     テキストと音声をストリーミングで返す
     """
+    # Authenticate before accepting
+    token = websocket.query_params.get("token")
+    async with async_session_factory() as db:
+        user = await verify_ws_token(token, db)
+        await db.commit()
+
+    if user is None:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+
+    user_id = user.user_id
     await websocket.accept()
 
     streaming_tts = StreamingTTS(agent=SessionAgent())
@@ -67,6 +79,21 @@ async def chat_websocket(websocket: WebSocket):
                     style_id=data.get("style_id", 0),
                     session_id=data.get("session_id"),
                 )
+
+                # session_id 所有者チェック
+                if request.session_id:
+                    try:
+                        async with async_session_factory() as db:
+                            session_repo = SessionRepository(db)
+                            session_obj = await session_repo.get_by_id(
+                                uuid.UUID(request.session_id)
+                            )
+                            if session_obj and session_obj.user_id != user_id:
+                                error = ErrorMessage(message="Forbidden: not your session")
+                                await websocket.send_text(error.model_dump_json())
+                                continue
+                    except Exception as e:
+                        print(f"Failed to verify session ownership: {e}")
 
                 # ユーザーの最新メッセージをDBに保存
                 if request.messages:

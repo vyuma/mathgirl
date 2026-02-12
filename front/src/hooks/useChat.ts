@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useStreamingAudio } from "@/lib/audio";
 import { useSpeechRecognition } from "@/lib/stt";
 import { type Speaker, useCoeiroink } from "@/lib/tts/useCoeiroink";
@@ -13,10 +14,12 @@ import {
 } from "@/lib/websocket";
 import { useBlackboardStore } from "@/stores/blackboardStore";
 import { useDialogStore } from "@/stores/dialogStore";
+import { usePanelStore } from "@/stores/panelStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUnderstandingStore } from "@/stores/understandingStore";
 
 export function useChat() {
+  const { data: authSession } = useSession();
   const {
     messages,
     addMessage,
@@ -26,7 +29,7 @@ export function useChat() {
   } = useDialogStore();
   const { sessionId } = useSessionStore();
   const { addFormula } = useBlackboardStore();
-  const { setLevel, setPendingQuestion } = useUnderstandingStore();
+  const { setLevel, setPendingQuestion, setSuggestion, clearSuggestion } = useUnderstandingStore();
 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
@@ -34,6 +37,8 @@ export function useChat() {
   const [isTurnComplete, setIsTurnComplete] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const textChunksRef = useRef<Map<number, string>>(new Map());
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSendRef = useRef<(text?: string) => void>(() => {});
 
   const { speakers, error: speakerError, getSpeakers } = useCoeiroink();
 
@@ -81,8 +86,11 @@ export function useChat() {
     (_error: string) => {
       clearStreaming();
       textChunksRef.current.clear();
+      setIsSpeaking(false);
+      setIsTurnComplete(false);
+      setIsProcessing(false);
     },
-    [clearStreaming],
+    [clearStreaming, setIsProcessing],
   );
 
   const {
@@ -99,23 +107,30 @@ export function useChat() {
     onError: handleWsError,
     onBlackboardUpdate: (data: { latex: string; explanation: string }) => {
       addFormula(data.latex, data.explanation);
+      // Auto-open blackboard panel if hidden
+      const { panels, togglePanel } = usePanelStore.getState();
+      if (!panels.blackboard.visible) {
+        togglePanel("blackboard");
+      }
     },
     onSuggestOperation: (data: {
       latex: string;
       operation: string;
       explanation: string;
     }) => {
-      addMessage({
-        role: "assistant",
-        content: data.explanation,
-        contentType: "suggest_operation",
-        metadata: { latex: data.latex, operation: data.operation },
+      setSuggestion({
+        latex: data.latex,
+        operation: data.operation,
+        explanation: data.explanation,
       });
     },
     onSocraticQuestion: (data) => {
       setPendingQuestion({
+        questionText: data.question_text,
         questionIfCorrect: data.question_if_correct,
         questionIfStuck: data.question_if_stuck,
+        visualHintLatex: data.visual_hint_latex,
+        currentUnderstandingLevel: data.current_understanding_level,
       });
     },
     onUnderstandingUpdate: (data) => {
@@ -135,6 +150,7 @@ export function useChat() {
     language: "ja-JP",
     continuous: true,
     interimResults: true,
+    autoRestart: true,
   });
 
   // Resume listening after playback ends
@@ -167,10 +183,13 @@ export function useChat() {
 
       if (!isConnected) {
         console.warn("[useChat] WebSocket not connected, cannot send");
+        addMessage({ role: "assistant", content: "接続が切れています。再接続中です...しばらくお待ちください。" });
         return;
       }
 
       addMessage({ role: "user", content: userText });
+      setPendingQuestion(null);
+      clearSuggestion();
       clearTranscript();
       stopListening();
       resetAudio();
@@ -188,13 +207,19 @@ export function useChat() {
       const currentStyleId =
         selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
 
-      sendChatRequest(
+      const sent = sendChatRequest(
         chatMessages,
         speakerUuid,
         currentStyleId,
         undefined,
         sessionId || undefined,
       );
+
+      // 送信失敗時は状態をリセット
+      if (!sent) {
+        setIsSpeaking(false);
+        setIsProcessing(false);
+      }
     },
     [
       transcript,
@@ -204,18 +229,58 @@ export function useChat() {
       isConnected,
       sessionId,
       addMessage,
+      setPendingQuestion,
+      clearSuggestion,
       clearTranscript,
       stopListening,
       resetAudio,
       sendChatRequest,
+      setIsProcessing,
     ],
   );
+
+  // handleSend を ref で最新に保つ（useEffect 内から呼ぶため）
+  handleSendRef.current = handleSend;
+
+  // 2秒間の無音検知 → 自動送信
+  useEffect(() => {
+    // 送信中・AI応答中・リスニングしていない場合はタイマー不要
+    if (isSpeaking || wsProcessing || !isListening) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      return;
+    }
+
+    // まだ interim が来ている（話し途中）or transcript が空 → タイマーリセット
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    // transcript があり、interim が空（発話が止まった）→ 2秒タイマー開始
+    if (transcript.trim() && !interimTranscript) {
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        handleSendRef.current();
+      }, 2000);
+    }
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    };
+  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing]);
 
   const handleStart = useCallback(() => {
     setHasUserInteracted(true);
     initAudio();
-    connect();
-  }, [initAudio, connect]);
+    connect(authSession?.idToken);
+    startListening();
+  }, [initAudio, connect, authSession?.idToken, startListening]);
 
   return {
     isSpeaking,

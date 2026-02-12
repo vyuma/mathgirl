@@ -1,7 +1,7 @@
 "use client";
 
 import { VRMLoaderPlugin } from "@pixiv/three-vrm";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
@@ -43,15 +43,22 @@ export default function VRMChat({ isSpeaking }: Props) {
 
     const scene = new THREE.Scene();
 
-    // 背景画像を設定
+    // モバイル判定と背景・カメラ切替
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load("/images/home.png", (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = false;
-      scene.background = texture;
-    });
+    let currentIsMobile = SCREEN_WIDTH < 768;
+
+    const loadBackground = (mobile: boolean) => {
+      const bgImage = mobile ? "/images/home_1.png" : "/images/home.png";
+      textureLoader.load(bgImage, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = false;
+        scene.background = texture;
+      });
+    };
+
+    loadBackground(currentIsMobile);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
@@ -61,21 +68,47 @@ export default function VRMChat({ isSpeaking }: Props) {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
+    const applyCameraSettings = (cam: THREE.PerspectiveCamera, mobile: boolean) => {
+      if (mobile) {
+        cam.fov = 55;
+        cam.position.set(0, 1.3, 2.2);
+        cam.lookAt(0, 1.3, 0);
+      } else {
+        cam.fov = 50;
+        cam.position.set(0, 1.5, 1.8);
+        cam.lookAt(0, 1.5, 0);
+      }
+      cam.updateProjectionMatrix();
+    };
+
     const camera = new THREE.PerspectiveCamera(
-      50,
+      currentIsMobile ? 55 : 50,
       SCREEN_WIDTH / SCREEN_HEIGHT,
       0.1,
       20.0,
     );
-    camera.position.set(0, 1.5, 1.8);
-    camera.lookAt(0, 1.5, 0);
+    applyCameraSettings(camera, currentIsMobile);
 
     const handleResize = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
       renderer.setSize(w, h);
       camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+
+      const mobile = w < 768;
+      if (mobile !== currentIsMobile) {
+        currentIsMobile = mobile;
+        loadBackground(mobile);
+        applyCameraSettings(camera, mobile);
+
+        // モデルスケールも切り替え
+        if (vrmRef.current) {
+          const s = mobile ? 1.0 : 1.2;
+          vrmRef.current.scene.scale.set(s, s, s);
+        }
+      } else {
+        camera.updateProjectionMatrix();
+      }
     };
     window.addEventListener("resize", handleResize);
 
@@ -190,7 +223,8 @@ export default function VRMChat({ isSpeaking }: Props) {
         scene.add(vrm.scene);
 
         vrm.scene.rotation.y = Math.PI;
-        vrm.scene.scale.set(1.2, 1.2, 1.2);
+        const modelScale = currentIsMobile ? 1.0 : 1.2;
+        vrm.scene.scale.set(modelScale, modelScale, modelScale);
 
         const bbox = new THREE.Box3().setFromObject(vrm.scene);
         vrm.scene.position.y = -bbox.min.y;

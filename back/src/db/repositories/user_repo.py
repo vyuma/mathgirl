@@ -21,3 +21,30 @@ class UserRepository:
             select(User).where(User.google_id == google_id)
         )
         return result.scalar_one_or_none()
+
+    async def find_or_create_by_google(
+        self,
+        google_id: str,
+        email: str | None,
+        name: str,
+        avatar_url: str | None,
+    ) -> User:
+        user = await self.get_by_google_id(google_id)
+        if user is not None:
+            user.user_name = name
+            if email:
+                user.email = email
+            if avatar_url:
+                user.avatar_url = avatar_url
+            await self.db.flush()
+            return user
+
+        user = User(
+            google_id=google_id,
+            user_name=name,
+            email=email,
+            avatar_url=avatar_url,
+        )
+        self.db.add(user)
+        await self.db.flush()
+        return user

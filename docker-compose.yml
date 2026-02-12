@@ -32,6 +32,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - COEIROINK_API_URL=http://host.docker.internal:50032
     extra_hosts:
       - "host.docker.internal:host-gateway"

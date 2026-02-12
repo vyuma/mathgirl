@@ -1,9 +1,12 @@
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth.dependencies import get_current_user
 from db.dependencies import get_db
+from db.models import User
 from db.repositories import SessionRepository, MessageRepository
 from model.session import (
     SessionCreate,
@@ -11,22 +14,22 @@ from model.session import (
     SessionListItem,
     MessageResponse,
 )
+from service.session_summary import generate_session_summary
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# v1 デフォルトユーザーID
-DEFAULT_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 @router.post("/sessions", response_model=SessionResponse)
 async def create_session(
     body: SessionCreate,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = body.user_id or DEFAULT_USER_ID
     repo = SessionRepository(db)
     session = await repo.create(
-        user_id=user_id,
+        user_id=user.user_id,
         title=body.title,
         text_content=body.text_content,
     )
@@ -35,44 +38,82 @@ async def create_session(
 
 @router.get("/sessions", response_model=list[SessionListItem])
 async def list_sessions(
-    user_id: uuid.UUID | None = None,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    uid = user_id or DEFAULT_USER_ID
     repo = SessionRepository(db)
-    sessions = await repo.list_by_user(uid)
+    sessions = await repo.list_by_user(user.user_id)
     return sessions
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(
     session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     repo = SessionRepository(db)
     session = await repo.get_by_id(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return session
 
 
 @router.patch("/sessions/{session_id}/end", response_model=SessionResponse)
 async def end_session(
     session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     repo = SessionRepository(db)
-    session = await repo.end_session(session_id)
+    session = await repo.get_by_id(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    session = await repo.end_session(session_id)
+
+    # タイトル未設定の場合、対話内容から自動要約を生成
+    if not session.title:
+        try:
+            msg_repo = MessageRepository(db)
+            messages = await msg_repo.list_by_session(session_id)
+            summary = await generate_session_summary(messages)
+            if summary:
+                session = await repo.update_title(session_id, summary)
+        except Exception:
+            logger.exception("セッション要約の生成に失敗しました: %s", session_id)
+
     return session
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    repo = SessionRepository(db)
+    deleted = await repo.delete(session_id, user.user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return Response(status_code=204)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageResponse])
 async def list_messages(
     session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    session_repo = SessionRepository(db)
+    session = await session_repo.get_by_id(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     repo = MessageRepository(db)
     messages = await repo.list_by_session(session_id)
     return messages

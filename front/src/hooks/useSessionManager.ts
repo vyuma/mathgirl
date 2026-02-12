@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { authFetch } from "@/lib/api/authFetch";
 import { useBlackboardStore } from "@/stores/blackboardStore";
 import { useDialogStore } from "@/stores/dialogStore";
 import { useNoteStore } from "@/stores/noteStore";
@@ -23,13 +24,17 @@ export function useSessionManager() {
       sessionStore.setStatus("starting");
 
       try {
-        const res = await fetch("/api/backend/sessions", {
+        const res = await authFetch("/api/backend/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text_content: textContent || null }),
         });
 
-        if (!res.ok) throw new Error("Failed to create session");
+        if (!res.ok) {
+          const body = await res.text();
+          console.error(`[useSessionManager] ${res.status} ${res.statusText}:`, body);
+          throw new Error(`Failed to create session: ${res.status}`);
+        }
 
         const data = await res.json();
         console.log(
@@ -58,7 +63,7 @@ export function useSessionManager() {
     if (!sessionStore.sessionId) return;
 
     try {
-      await fetch(`/api/backend/sessions/${sessionStore.sessionId}/end`, {
+      await authFetch(`/api/backend/sessions/${sessionStore.sessionId}/end`, {
         method: "PATCH",
       });
       sessionStore.setStatus("completed");
