@@ -15,7 +15,7 @@ echo "Email: ${EMAIL}"
 
 # Switch to HTTP-only config
 echo "### Switching to HTTP-only config ###"
-cp ./nginx/conf.d/app-http-only.conf ./nginx/conf.d/app.conf.temp
+cp ./nginx/conf.d/app-http-only.conf.template ./nginx/conf.d/app.conf.temp
 mv ./nginx/conf.d/app.conf ./nginx/conf.d/app.conf.https.backup 2>/dev/null || true
 mv ./nginx/conf.d/app.conf.temp ./nginx/conf.d/app.conf
 echo "Switched to HTTP-only config"
