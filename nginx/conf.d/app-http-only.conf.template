@@ -8,8 +8,8 @@ server {
         root /var/www/certbot;
     }
 
-    # Backend API
-    location /api/ {
+    # Backend API (direct access bypassing Next.js)
+    location /api/backend/ {
         proxy_pass http://back:8080/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
