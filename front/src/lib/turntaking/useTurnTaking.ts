@@ -19,7 +19,9 @@ export type UseTurnTakingOptions = {
 
 export function useTurnTaking(options: UseTurnTakingOptions = {}) {
   const {
-    wsUrl = `${process.env.NEXT_PUBLIC_WS_URL?.replace("/ws/chat", "") || "ws://localhost:8080"}/ws/turntaking`,
+    wsUrl = typeof window !== "undefined"
+      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/turntaking`
+      : "ws://localhost:8080/ws/turntaking",
     onPrediction,
     onShouldTakeTurn,
     enabled = true,

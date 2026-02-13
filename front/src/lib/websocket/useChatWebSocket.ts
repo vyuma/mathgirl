@@ -37,10 +37,10 @@ function getDefaultWsUrl(): string {
   if (typeof window === "undefined") {
     return "ws://localhost:8080/ws/chat";
   }
-  // フォールバック: バックエンドポート8080を使用
+  // nginx経由で接続（本番: wss://ani-math.jp/ws/chat）
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname;
-  return `${protocol}//${host}:8080/ws/chat`;
+  const host = window.location.host;
+  return `${protocol}//${host}/ws/chat`;
 }
 
 export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
