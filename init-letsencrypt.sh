@@ -1,51 +1,77 @@
 #!/bin/bash
-# init-letsencrypt.sh
-# ani-math.jp の初回SSL証明書を取得するスクリプト
-# Usage: sudo bash init-letsencrypt.sh
+
+# Let's Encrypt initialization script
+# Obtains initial SSL certificate for ani-math.jp
 
 set -e
 
 DOMAIN="ani-math.jp"
-EMAIL="${CERTBOT_EMAIL:-}"  # .env or env var で指定、空なら --register-unsafely-without-email
-COMPOSE="docker compose -f docker-compose.prod.yml"
+EMAIL="yumaboda.official@gmail.com"
+STAGING=0  # Set to 1 for testing with staging certificates
 
-if [ -z "$EMAIL" ]; then
-  echo "Warning: CERTBOT_EMAIL not set. Using --register-unsafely-without-email"
-  EMAIL_ARG="--register-unsafely-without-email"
-else
-  EMAIL_ARG="--email $EMAIL -m $EMAIL"
+echo "### Let's Encrypt initialization ###"
+echo "Domain: ${DOMAIN}"
+echo "Email: ${EMAIL}"
+
+# Switch to HTTP-only config
+echo "### Switching to HTTP-only config ###"
+cp ./nginx/conf.d/app-http-only.conf ./nginx/conf.d/app.conf.temp
+mv ./nginx/conf.d/app.conf ./nginx/conf.d/app.conf.https.backup 2>/dev/null || true
+mv ./nginx/conf.d/app.conf.temp ./nginx/conf.d/app.conf
+echo "Switched to HTTP-only config"
+
+# Start all services (HTTP only)
+echo "### Starting services ###"
+docker compose -f docker-compose.prod.yml up -d
+sleep 5
+echo "Services started"
+
+# Download recommended TLS parameters
+echo "### Downloading TLS parameters ###"
+mkdir -p ./certbot/conf
+
+PARAMS_PATH="./certbot/conf/options-ssl-nginx.conf"
+if [ ! -e "$PARAMS_PATH" ]; then
+  echo "Downloading TLS parameters..."
+  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "$PARAMS_PATH"
+  echo "TLS parameters downloaded"
 fi
 
-echo "==> 1. Creating dummy certificate for nginx to start..."
-$COMPOSE run --rm --entrypoint "" certbot sh -c "
-  mkdir -p /etc/letsencrypt/live/$DOMAIN &&
-  openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-    -keyout /etc/letsencrypt/live/$DOMAIN/privkey.pem \
-    -out /etc/letsencrypt/live/$DOMAIN/fullchain.pem \
-    -subj '/CN=localhost'
-"
+DHPARAMS_PATH="./certbot/conf/ssl-dhparams.pem"
+if [ ! -e "$DHPARAMS_PATH" ]; then
+  echo "Downloading DH parameters..."
+  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "$DHPARAMS_PATH"
+  echo "DH parameters downloaded"
+fi
 
-echo "==> 2. Starting nginx..."
-$COMPOSE up -d nginx
+# Obtain certificate
+echo "### Obtaining Let's Encrypt certificate ###"
+STAGING_ARG=""
+if [ $STAGING != "0" ]; then
+  STAGING_ARG="--staging"
+  echo "Using staging environment (test certificates)"
+fi
 
-echo "==> 3. Deleting dummy certificate..."
-$COMPOSE run --rm --entrypoint "" certbot sh -c "
-  rm -rf /etc/letsencrypt/live/$DOMAIN &&
-  rm -rf /etc/letsencrypt/archive/$DOMAIN &&
-  rm -rf /etc/letsencrypt/renewal/$DOMAIN.conf
-"
-
-echo "==> 4. Requesting real certificate from Let's Encrypt..."
-$COMPOSE run --rm certbot certonly \
-  --webroot \
-  --webroot-path=/var/www/certbot \
-  -d "$DOMAIN" \
-  $EMAIL_ARG \
+docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot \
+  $STAGING_ARG \
+  --email "$EMAIL" \
   --agree-tos \
   --no-eff-email \
-  --force-renewal
+  --force-renewal \
+  -d "$DOMAIN"
 
-echo "==> 5. Reloading nginx..."
-$COMPOSE exec nginx nginx -s reload
+# Restore HTTPS config
+echo "### Restoring HTTPS config ###"
+if [ -f ./nginx/conf.d/app.conf.https.backup ]; then
+  mv ./nginx/conf.d/app.conf.https.backup ./nginx/conf.d/app.conf
+  echo "HTTPS config restored"
+else
+  echo "WARNING: HTTPS backup not found, keeping current config"
+fi
 
-echo "==> Done! HTTPS is now active for $DOMAIN"
+# Reload nginx
+echo "### Reloading nginx ###"
+docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+
+echo "### Done! ###"
+echo "HTTPS is now active: https://${DOMAIN}"
