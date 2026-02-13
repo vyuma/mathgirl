@@ -28,19 +28,19 @@ echo "Services started"
 
 # Download recommended TLS parameters
 echo "### Downloading TLS parameters ###"
-mkdir -p ./certbot/conf
+sudo mkdir -p ./certbot/conf
 
 PARAMS_PATH="./certbot/conf/options-ssl-nginx.conf"
 if [ ! -e "$PARAMS_PATH" ]; then
   echo "Downloading TLS parameters..."
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "$PARAMS_PATH"
+  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf | sudo tee "$PARAMS_PATH" > /dev/null
   echo "TLS parameters downloaded"
 fi
 
 DHPARAMS_PATH="./certbot/conf/ssl-dhparams.pem"
 if [ ! -e "$DHPARAMS_PATH" ]; then
   echo "Downloading DH parameters..."
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "$DHPARAMS_PATH"
+  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem | sudo tee "$DHPARAMS_PATH" > /dev/null
   echo "DH parameters downloaded"
 fi
 
