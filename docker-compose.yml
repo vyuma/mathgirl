@@ -34,7 +34,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
-      - COEIROINK_API_URL=http://host.docker.internal:50032
+      - COEIROINK_API_URL=https://coeiroink.yuma-dev.uk
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: uv run fastapi dev src/main.py --host 0.0.0.0 --port ${BACK_PORT}
