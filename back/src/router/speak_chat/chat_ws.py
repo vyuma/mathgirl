@@ -54,18 +54,21 @@ async def _poll_animation_job(
 ):
     """バックグラウンドでアニメーションジョブをポーリングし、進捗/完了/失敗をWebSocket送信"""
     try:
+        # ジョブ登録完了を待つ初期遅延
+        await asyncio.sleep(3)
         while True:
-            await asyncio.sleep(2)
             status_data = await animation_client.get_job_status(job_id)
             status = status_data.get("status", "")
 
             if status == "completed":
-                result = status_data.get("result", {})
+                result = status_data.get("result") or {}
                 video_id = result.get("video_id", "")
+                # generation_id はresultから取得（full jobの場合）
+                actual_gen_id = result.get("generation_id", generation_id) or generation_id
                 video_url = animation_client.get_video_url(video_id)
                 msg = AnimationComplete(
                     job_id=job_id,
-                    generation_id=generation_id,
+                    generation_id=actual_gen_id,
                     video_id=video_id,
                     video_url=video_url,
                 )
@@ -78,8 +81,9 @@ async def _poll_animation_job(
                 await _send_ws_message(websocket, ws_lock, msg)
                 return
 
-            # In progress
-            progress = status_data.get("progress", 0)
+            # In progress — APIは0-1、フロントは0-100
+            raw_progress = status_data.get("progress", 0)
+            progress = raw_progress * 100 if raw_progress <= 1 else raw_progress
             current_step = status_data.get("current_step", "")
             msg = AnimationProgress(
                 job_id=job_id,
@@ -87,6 +91,7 @@ async def _poll_animation_job(
                 current_step=current_step,
             )
             await _send_ws_message(websocket, ws_lock, msg)
+            await asyncio.sleep(3)
     except Exception as e:
         try:
             msg = AnimationFailed(job_id=job_id, error=str(e))
@@ -106,15 +111,12 @@ async def _handle_animation_requests(
     for req in requests:
         try:
             if req["type"] == "animation_request":
-                # Plan -> Full job
-                plan_data = await animation_client.plan_animation(
-                    req["text"], req.get("additional_instructions", "")
-                )
-                generation_id = plan_data["generation_id"]
+                # Full job（内部で計画立案+生成を実行）
                 job_data = await animation_client.create_full_job(
                     req["text"], req.get("additional_instructions", "")
                 )
                 job_id = job_data["job_id"]
+                generation_id = 0  # 完了時にresultから取得
                 description = req["text"]
 
             elif req["type"] == "animation_edit_request":

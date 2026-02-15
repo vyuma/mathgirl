@@ -1,5 +1,6 @@
 """Client for the external Manim animation generation API."""
 
+import asyncio
 import os
 
 import httpx
@@ -42,11 +43,21 @@ class AnimationClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def get_job_status(self, job_id: str) -> dict:
-        """GET /api/job/{job_id}/status -> {status, progress, current_step, result}"""
-        resp = await self._client.get(
-            f"{self.base_url}/api/job/{job_id}/status",
-        )
+    async def get_job_status(self, job_id: str, retries: int = 3) -> dict:
+        """GET /api/job/{job_id}/status -> {status, progress, current_step, result}
+
+        404はジョブ登録直後に発生することがあるため、リトライする。
+        """
+        for attempt in range(retries):
+            resp = await self._client.get(
+                f"{self.base_url}/api/job/{job_id}/status",
+            )
+            if resp.status_code == 404 and attempt < retries - 1:
+                await asyncio.sleep(2)
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        # unreachable, but for type checker
         resp.raise_for_status()
         return resp.json()
 
