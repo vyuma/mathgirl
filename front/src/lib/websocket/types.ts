@@ -74,6 +74,34 @@ export type UnderstandingUpdate = {
   topic: string;
 };
 
+export type AnimationStarted = {
+  type: "animation_started";
+  generation_id: number;
+  job_id: string;
+  description: string;
+};
+
+export type AnimationProgress = {
+  type: "animation_progress";
+  job_id: string;
+  progress: number;
+  current_step: string;
+};
+
+export type AnimationComplete = {
+  type: "animation_complete";
+  job_id: string;
+  generation_id: number;
+  video_id: string;
+  video_url: string;
+};
+
+export type AnimationFailed = {
+  type: "animation_failed";
+  job_id: string;
+  error: string;
+};
+
 export type WSMessage =
   | TextChunk
   | AudioChunk
@@ -83,7 +111,11 @@ export type WSMessage =
   | SuggestOperation
   | HintMessage
   | SocraticQuestion
-  | UnderstandingUpdate;
+  | UnderstandingUpdate
+  | AnimationStarted
+  | AnimationProgress
+  | AnimationComplete
+  | AnimationFailed;
 
 // 接続状態
 export type ConnectionState =

@@ -12,6 +12,7 @@ import {
   type TextChunk,
   useChatWebSocket,
 } from "@/lib/websocket";
+import { useAnimationStore } from "@/stores/animationStore";
 import { useBlackboardStore } from "@/stores/blackboardStore";
 import { useDialogStore } from "@/stores/dialogStore";
 import { usePanelStore } from "@/stores/panelStore";
@@ -29,6 +30,7 @@ export function useChat() {
   } = useDialogStore();
   const { sessionId } = useSessionStore();
   const { addFormula } = useBlackboardStore();
+  const { startJob, updateProgress, completeJob, failJob } = useAnimationStore();
   const { setLevel, setPendingQuestion, setSuggestion, clearSuggestion } = useUnderstandingStore();
 
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -135,6 +137,23 @@ export function useChat() {
     },
     onUnderstandingUpdate: (data) => {
       setLevel(data.level, data.topic);
+    },
+    onAnimationStarted: (data) => {
+      startJob(data.job_id, data.generation_id, data.description);
+      // Auto-open animation panel
+      const { panels, togglePanel } = usePanelStore.getState();
+      if (!panels.animation.visible) {
+        togglePanel("animation");
+      }
+    },
+    onAnimationProgress: (data) => {
+      updateProgress(data.job_id, data.progress, data.current_step);
+    },
+    onAnimationComplete: (data) => {
+      completeJob(data.job_id, data.generation_id, data.video_id, data.video_url);
+    },
+    onAnimationFailed: (data) => {
+      failJob(data.job_id, data.error);
     },
   });
 

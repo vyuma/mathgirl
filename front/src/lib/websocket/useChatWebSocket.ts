@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  AnimationComplete,
+  AnimationFailed,
+  AnimationProgress,
+  AnimationStarted,
   AudioChunk,
   BlackboardUpdate,
   ChatMessage,
@@ -27,6 +31,10 @@ type UseChatWebSocketOptions = {
   onHint?: (data: HintMessage) => void;
   onSocraticQuestion?: (data: SocraticQuestion) => void;
   onUnderstandingUpdate?: (data: UnderstandingUpdate) => void;
+  onAnimationStarted?: (data: AnimationStarted) => void;
+  onAnimationProgress?: (data: AnimationProgress) => void;
+  onAnimationComplete?: (data: AnimationComplete) => void;
+  onAnimationFailed?: (data: AnimationFailed) => void;
 };
 
 function getDefaultWsUrl(): string {
@@ -153,6 +161,18 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
             break;
           case "understanding_update":
             cbs.onUnderstandingUpdate?.(message);
+            break;
+          case "animation_started":
+            cbs.onAnimationStarted?.(message);
+            break;
+          case "animation_progress":
+            cbs.onAnimationProgress?.(message);
+            break;
+          case "animation_complete":
+            cbs.onAnimationComplete?.(message);
+            break;
+          case "animation_failed":
+            cbs.onAnimationFailed?.(message);
             break;
         }
       } catch (e) {

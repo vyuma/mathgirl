@@ -22,7 +22,8 @@ WORKDIR /app
 RUN npm install -g bun
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/bun.lock ./
-RUN bun install --frozen-lockfile --production
+# next.config.ts を runtime で読むため TypeScript も必要
+RUN bun install --frozen-lockfile
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./

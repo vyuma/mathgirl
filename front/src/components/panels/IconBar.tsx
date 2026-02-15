@@ -2,7 +2,7 @@
 
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
 
 const icons: {
   id: PanelId;
@@ -33,6 +33,12 @@ const icons: {
     label: "数式",
     emoji: "\u{1F58B}\u{FE0F}",
     activeClass: "bg-indigo-500 text-white shadow-md",
+  },
+  {
+    id: "animation",
+    label: "アニメ",
+    emoji: "\u{1F3AC}",
+    activeClass: "bg-teal-500 text-white shadow-md",
   },
 ];
 
