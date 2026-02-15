@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioQueue } from "./AudioQueue";
 
 type UseStreamingAudioOptions = {
@@ -12,7 +12,9 @@ export function useStreamingAudio(options: UseStreamingAudioOptions = {}) {
   const { onSentenceStart, onSentenceEnd } = options;
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number | null>(null);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState<
+    number | null
+  >(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
 
   // コールバックをrefに保存（useEffectの依存配列から除外するため）
@@ -65,7 +67,7 @@ export function useStreamingAudio(options: UseStreamingAudioOptions = {}) {
     async (index: number, audioBase64: string) => {
       await audioQueueRef.current?.addAudio(index, audioBase64);
     },
-    []
+    [],
   );
 
   /**

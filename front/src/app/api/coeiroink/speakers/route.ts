@@ -10,7 +10,7 @@ export async function GET() {
     console.error("COEIROINK speakers error:", error);
     return NextResponse.json(
       { error: "Failed to fetch speakers from COEIROINK" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

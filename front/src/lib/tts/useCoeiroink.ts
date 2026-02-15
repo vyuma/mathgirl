@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { Speaker } from "./coeiroink";
 
 export type { Speaker };
@@ -36,7 +36,7 @@ export function useCoeiroink() {
     async (
       text: string,
       speakerUuid: string,
-      styleId: number
+      styleId: number,
     ): Promise<Blob | null> => {
       try {
         const speaker = speakers.find((s) => s.speaker_uuid === speakerUuid);
@@ -71,7 +71,7 @@ export function useCoeiroink() {
         return null;
       }
     },
-    [speakers]
+    [speakers],
   );
 
   return {

@@ -1,11 +1,16 @@
-export { useChatWebSocket } from "./useChatWebSocket";
 export type {
+  AudioChunk,
+  BlackboardUpdate,
   ChatMessage,
   ChatRequest,
-  WSMessage,
-  TextChunk,
-  AudioChunk,
   CompleteMessage,
-  ErrorMessage,
   ConnectionState,
+  ErrorMessage,
+  HintMessage,
+  SocraticQuestion,
+  SuggestOperation,
+  TextChunk,
+  UnderstandingUpdate,
+  WSMessage,
 } from "./types";
+export { useChatWebSocket } from "./useChatWebSocket";

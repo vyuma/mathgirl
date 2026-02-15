@@ -1,1 +1,0 @@
-export { useAizuchi } from "./useAizuchi";

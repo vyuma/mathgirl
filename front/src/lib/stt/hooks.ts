@@ -73,7 +73,12 @@ export function useSpeechRecognition(
           setInterimTranscript("");
 
           if (autoRestart && shouldRestartRef.current) {
-            client.start();
+            // 少し待ってから再起動（ブラウザのレートリミット回避）
+            setTimeout(() => {
+              if (shouldRestartRef.current) {
+                client.start();
+              }
+            }, 300);
           }
         },
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type TurnTakingPrediction = {
   p_now: number; // 0-600msでの発話終了確率
@@ -19,7 +19,9 @@ export type UseTurnTakingOptions = {
 
 export function useTurnTaking(options: UseTurnTakingOptions = {}) {
   const {
-    wsUrl = `${process.env.NEXT_PUBLIC_WS_URL?.replace("/ws/chat", "") || "ws://localhost:8080"}/ws/turntaking`,
+    wsUrl = typeof window !== "undefined"
+      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/turntaking`
+      : "ws://localhost:8080/ws/turntaking",
     onPrediction,
     onShouldTakeTurn,
     enabled = true,
@@ -28,7 +30,7 @@ export function useTurnTaking(options: UseTurnTakingOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isVapAvailable, setIsVapAvailable] = useState(false);
   const [prediction, setPrediction] = useState<TurnTakingPrediction | null>(
-    null
+    null,
   );
   const [isRecording, setIsRecording] = useState(false);
 
@@ -57,7 +59,7 @@ export function useTurnTaking(options: UseTurnTakingOptions = {}) {
           if (data.type === "status") {
             setIsVapAvailable(data.vap_available);
             console.log(
-              `TurnTaking status: ${data.message}, VAP available: ${data.vap_available}`
+              `TurnTaking status: ${data.message}, VAP available: ${data.vap_available}`,
             );
           } else if (data.type === "prediction") {
             const pred: TurnTakingPrediction = {
@@ -150,7 +152,7 @@ export function useTurnTaking(options: UseTurnTakingOptions = {}) {
 
         // Base64エンコードして送信
         const base64 = btoa(
-          String.fromCharCode(...new Uint8Array(pcmData.buffer))
+          String.fromCharCode(...new Uint8Array(pcmData.buffer)),
         );
 
         wsRef.current.send(
@@ -158,7 +160,7 @@ export function useTurnTaking(options: UseTurnTakingOptions = {}) {
             type: "audio_chunk",
             audio_base64: base64,
             sample_rate: 16000,
-          })
+          }),
         );
       };
 

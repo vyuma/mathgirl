@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from model.chat import ChatMessage
+from model.speak_chat.chat import ChatMessage
 from .prompt import ALICE_SYSTEM_PROMPT
 from .sentence_splitter import SentenceSplitter
 

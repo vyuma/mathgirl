@@ -1,6 +1,6 @@
 import os
 import httpx
-from model.speaker import Speaker, SpeakerStyle
+from model.speak_chat.speaker import Speaker, SpeakerStyle
 
 
 class CoeiroinkClient:
@@ -8,7 +8,7 @@ class CoeiroinkClient:
 
     def __init__(self, api_url: str | None = None):
         self.api_url = api_url or os.getenv(
-            "COEIROINK_API_URL", "http://host.docker.internal:50032"
+            "COEIROINK_API_URL", "https://coeiroink.yuma-dev.uk"
         )
         self._client: httpx.AsyncClient | None = None
 

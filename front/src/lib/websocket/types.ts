@@ -12,6 +12,7 @@ export type ChatRequest = {
   goal?: string;
   speaker_uuid: string;
   style_id: number;
+  session_id?: string;
 };
 
 // サーバー → クライアント
@@ -38,7 +39,55 @@ export type ErrorMessage = {
   message: string;
 };
 
-export type WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage;
+export type BlackboardUpdate = {
+  type: "blackboard_update";
+  latex: string;
+  explanation: string;
+};
+
+export type SuggestOperation = {
+  type: "suggest_operation";
+  latex: string;
+  operation: string;
+  explanation: string;
+};
+
+export type HintMessage = {
+  type: "hint";
+  hint_text: string;
+  related_latex: string | null;
+};
+
+export type SocraticQuestion = {
+  type: "socratic_question";
+  question_text: string;
+  question_if_correct: string;
+  question_if_stuck: string;
+  visual_hint_latex: string | null;
+  current_understanding_level: number;
+};
+
+export type UnderstandingUpdate = {
+  type: "understanding_update";
+  level: number;
+  reasoning: string;
+  topic: string;
+};
+
+export type WSMessage =
+  | TextChunk
+  | AudioChunk
+  | CompleteMessage
+  | ErrorMessage
+  | BlackboardUpdate
+  | SuggestOperation
+  | HintMessage
+  | SocraticQuestion
+  | UnderstandingUpdate;
 
 // 接続状態
-export type ConnectionState = "connecting" | "connected" | "disconnected" | "error";
+export type ConnectionState =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
