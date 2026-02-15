@@ -85,5 +85,42 @@ class UnderstandingUpdate(BaseModel):
     topic: str
 
 
+class AnimationStarted(BaseModel):
+    """アニメーション生成開始メッセージ"""
+    type: Literal["animation_started"] = "animation_started"
+    generation_id: int
+    job_id: str
+    description: str
+
+
+class AnimationProgress(BaseModel):
+    """アニメーション生成進捗メッセージ"""
+    type: Literal["animation_progress"] = "animation_progress"
+    job_id: str
+    progress: float
+    current_step: str
+
+
+class AnimationComplete(BaseModel):
+    """アニメーション生成完了メッセージ"""
+    type: Literal["animation_complete"] = "animation_complete"
+    job_id: str
+    generation_id: int
+    video_id: str
+    video_url: str
+
+
+class AnimationFailed(BaseModel):
+    """アニメーション生成失敗メッセージ"""
+    type: Literal["animation_failed"] = "animation_failed"
+    job_id: str
+    error: str
+
+
 # Union type for all WebSocket messages
-WSMessage = TextChunk | AudioChunk | CompleteMessage | ErrorMessage | BlackboardUpdate | SuggestOperation | HintMessage | SocraticQuestion | UnderstandingUpdate
+WSMessage = (
+    TextChunk | AudioChunk | CompleteMessage | ErrorMessage
+    | BlackboardUpdate | SuggestOperation | HintMessage
+    | SocraticQuestion | UnderstandingUpdate
+    | AnimationStarted | AnimationProgress | AnimationComplete | AnimationFailed
+)

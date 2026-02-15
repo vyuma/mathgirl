@@ -16,6 +16,20 @@ def get_and_clear_tool_results() -> list[dict[str, Any]]:
 
 
 @tool
+def speak(text: str) -> str:
+    """学習者に声で話しかける。音声合成されるテキスト。
+
+    Args:
+        text: 話す内容。自然な日本語のみ。数式・LaTeX記号・変数名（x, y, f(x)等）は絶対に含めないこと。
+    """
+    _tool_results.append({
+        "type": "speak",
+        "text": text,
+    })
+    return f"「{text}」と話しました"
+
+
+@tool
 def write_to_blackboard(latex: str, explanation: str) -> str:
     """黒板に数式を表示する。学習者に見せたい数式をLaTeX形式で指定する。
 
@@ -95,4 +109,38 @@ def estimate_understanding(level: int, reasoning: str, topic: str) -> str:
     return f"理解度を更新しました: {topic} = Lv{level}"
 
 
-SESSION_TOOLS = [write_to_blackboard, suggest_operation, pose_question, estimate_understanding]
+@tool
+def generate_animation(text: str, additional_instructions: str = "") -> str:
+    """数学的な概念のアニメーションを生成する。回転体、グラフの変化、幾何学的変換など視覚化が有効な場面で使う。
+
+    Args:
+        text: アニメーション化したい数学的概念の説明
+        additional_instructions: 追加の指示（色、速度、視点など）
+    """
+    _tool_results.append({
+        "type": "animation_request",
+        "text": text,
+        "additional_instructions": additional_instructions,
+    })
+    return f"アニメーション生成をリクエストしました: {text}"
+
+
+@tool
+def edit_animation(generation_id: int, prior_video_id: str, enhance_prompt: str) -> str:
+    """既存のアニメーションを編集・修正する。色変更、速度調整、視点変更などに使う。
+
+    Args:
+        generation_id: 編集対象のアニメーションのgeneration_id（整数）
+        prior_video_id: 編集対象の動画のvideo_id
+        enhance_prompt: 修正内容の説明
+    """
+    _tool_results.append({
+        "type": "animation_edit_request",
+        "generation_id": generation_id,
+        "prior_video_id": prior_video_id,
+        "enhance_prompt": enhance_prompt,
+    })
+    return f"アニメーション編集をリクエストしました: {enhance_prompt}"
+
+
+SESSION_TOOLS = [speak, write_to_blackboard, suggest_operation, pose_question, estimate_understanding, generate_animation, edit_animation]

@@ -26,6 +26,43 @@ class StreamingTTS:
     ):
         self.agent = agent or AliceAgent()
         self.tts_client = tts_client or CoeiroinkClient()
+        self._pending_animation_requests: list[dict] = []
+
+    @staticmethod
+    def _tool_result_to_message(result: dict) -> WSMessage | None:
+        """Convert a tool result dict to a WSMessage."""
+        msg_type = result.get("type")
+        if msg_type == "blackboard_update":
+            return BlackboardUpdate(
+                latex=result["latex"],
+                explanation=result["explanation"],
+            )
+        if msg_type == "suggest_operation":
+            return SuggestOperation(
+                latex=result["latex"],
+                operation=result["operation"],
+                explanation=result["explanation"],
+            )
+        if msg_type == "hint":
+            return HintMessage(
+                hint_text=result["hint_text"],
+                related_latex=result.get("related_latex"),
+            )
+        if msg_type == "socratic_question":
+            return SocraticQuestion(
+                question_text=result["question_text"],
+                question_if_correct=result["question_if_correct"],
+                question_if_stuck=result["question_if_stuck"],
+                visual_hint_latex=result.get("visual_hint_latex"),
+                current_understanding_level=result.get("current_understanding_level", 0),
+            )
+        if msg_type == "understanding_update":
+            return UnderstandingUpdate(
+                level=result["level"],
+                reasoning=result["reasoning"],
+                topic=result["topic"],
+            )
+        return None
 
     async def stream_chat_with_audio(
         self,
@@ -39,21 +76,37 @@ class StreamingTTS:
         """
         チャット応答と音声をストリーミング配信
 
-        テキストチャンクは即座に送信し、音声は並列処理後に順序保証で送信
+        SessionAgent の場合:
+          1. invoke() でLLM呼び出し＋ツール処理
+          2. ツール結果（黒板・質問等）を先に送信
+          3. speak テキストを音声ストリーミング
         """
-        # TTS処理用のタスクキュー
+        from agent.session_chat import SessionAgent
+
+        # --- SessionAgent: invoke first, send tool results, then stream speech ---
+        if isinstance(self.agent, SessionAgent):
+            await self.agent.invoke(messages, text_content=text_content, meta_info=meta_info)
+
+            # Separate animation requests from other tool results
+            self._pending_animation_requests.clear()
+            for result in self.agent.get_tool_results():
+                if result["type"] in ("animation_request", "animation_edit_request"):
+                    self._pending_animation_requests.append(result)
+                else:
+                    msg = self._tool_result_to_message(result)
+                    if msg:
+                        yield msg
+
+            # Stream prepared speech text
+            sentence_gen = self.agent.stream_sentences()
+        else:
+            sentence_gen = self.agent.stream_sentences(messages, goal)
+
+        # --- Stream text + TTS audio ---
         tts_tasks: dict[int, asyncio.Task[bytes]] = {}
         full_text_parts: list[str] = []
         next_audio_index = 0
 
-        # SessionAgent の場合は text_content/meta_info を渡す
-        from agent.session_chat import SessionAgent
-        if isinstance(self.agent, SessionAgent):
-            sentence_gen = self.agent.stream_sentences(messages, text_content=text_content, meta_info=meta_info)
-        else:
-            sentence_gen = self.agent.stream_sentences(messages, goal)
-
-        # LLMからの文単位ストリーミングを処理
         async for index, text, is_partial in sentence_gen:
             full_text_parts.append(text)
 
@@ -99,42 +152,6 @@ class StreamingTTS:
             else:
                 await asyncio.sleep(0.01)
 
-        # ツール結果をWSメッセージとして送信（SessionAgentの場合）
-        if isinstance(self.agent, SessionAgent):
-            tool_results = self.agent.get_tool_results()
-            for result in tool_results:
-                msg_type = result.get("type")
-                if msg_type == "blackboard_update":
-                    yield BlackboardUpdate(
-                        latex=result["latex"],
-                        explanation=result["explanation"],
-                    )
-                elif msg_type == "suggest_operation":
-                    yield SuggestOperation(
-                        latex=result["latex"],
-                        operation=result["operation"],
-                        explanation=result["explanation"],
-                    )
-                elif msg_type == "hint":
-                    yield HintMessage(
-                        hint_text=result["hint_text"],
-                        related_latex=result.get("related_latex"),
-                    )
-                elif msg_type == "socratic_question":
-                    yield SocraticQuestion(
-                        question_text=result["question_text"],
-                        question_if_correct=result["question_if_correct"],
-                        question_if_stuck=result["question_if_stuck"],
-                        visual_hint_latex=result.get("visual_hint_latex"),
-                        current_understanding_level=result.get("current_understanding_level", 0),
-                    )
-                elif msg_type == "understanding_update":
-                    yield UnderstandingUpdate(
-                        level=result["level"],
-                        reasoning=result["reasoning"],
-                        topic=result["topic"],
-                    )
-
         # 完了メッセージを送信
         full_text = "".join(full_text_parts)
         yield CompleteMessage(full_text=full_text)
@@ -148,6 +165,12 @@ class StreamingTTS:
             speaker_uuid=speaker_uuid,
             style_id=style_id,
         )
+
+    def get_pending_animation_requests(self) -> list[dict]:
+        """取得して保留中のアニメーションリクエストをクリア"""
+        reqs = self._pending_animation_requests.copy()
+        self._pending_animation_requests.clear()
+        return reqs
 
     async def close(self):
         """リソースをクリーンアップ"""

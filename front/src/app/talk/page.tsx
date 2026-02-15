@@ -1,5 +1,6 @@
 "use client";
 
+import AnimationPanel from "@/components/panels/AnimationPanel";
 import BlackboardPanel from "@/components/BlackboardPanel";
 import DialogLogPanel from "@/components/panels/DialogLogPanel";
 import IconBar from "@/components/panels/IconBar";
@@ -40,6 +41,11 @@ export default function MainPage() {
       {/* 黒板パネル */}
       <PanelContainer panel="blackboard">
         <BlackboardPanel />
+      </PanelContainer>
+
+      {/* アニメーションパネル */}
+      <PanelContainer panel="animation">
+        <AnimationPanel />
       </PanelContainer>
 
       {/* トップバー */}
