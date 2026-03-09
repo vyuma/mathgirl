@@ -14,7 +14,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:${BACK_PORT}
       - NEXT_PUBLIC_WS_URL=ws://localhost:${BACK_PORT}/ws/chat
       - PORT=${FRONT_PORT}
-      - AUTH_URL=https://mathgirl.yuma-dev.uk
+      - AUTH_URL=http://localhost:${FRONT_PORT}
       - AUTH_TRUST_HOST=true
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}

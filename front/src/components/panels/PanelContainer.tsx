@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Rnd } from "react-rnd";
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
 
 const panelConfig: Record<
   PanelId,
@@ -48,6 +48,14 @@ const panelConfig: Record<
     borderColor: "border-indigo-200/60",
     iconBg: "bg-indigo-400",
     accentColor: "bg-indigo-300",
+  },
+  animation: {
+    title: "アニメーション",
+    icon: "🎬",
+    gradient: "from-teal-50 to-cyan-50",
+    borderColor: "border-teal-200/60",
+    iconBg: "bg-teal-400",
+    accentColor: "bg-teal-300",
   },
 };
 

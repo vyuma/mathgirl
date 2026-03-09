@@ -1,4 +1,8 @@
 export type {
+  AnimationComplete,
+  AnimationFailed,
+  AnimationProgress,
+  AnimationStarted,
   AudioChunk,
   BlackboardUpdate,
   ChatMessage,
