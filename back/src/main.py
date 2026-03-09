@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from db import init_db, async_session_factory
 from db.models import User
-from router.speak_chat import chat_ws_router, chat_router, speakers_router, synthesis_router, turntaking_ws_router
+from router.speak_chat import chat_ws_router, chat_router, speakers_router, synthesis_router
 from router.sessions import sessions_router
 from router.notes import notes_router
 from router.ocr import ocr_router
@@ -56,7 +56,6 @@ app.include_router(chat_ws_router)
 app.include_router(chat_router, prefix="/api", tags=["chat"])
 app.include_router(speakers_router, prefix="/api", tags=["speakers"])
 app.include_router(synthesis_router, prefix="/api", tags=["synthesis"])
-app.include_router(turntaking_ws_router)
 app.include_router(sessions_router, prefix="/api", tags=["sessions"])
 app.include_router(notes_router, prefix="/api", tags=["notes"])
 app.include_router(ocr_router, prefix="/api", tags=["ocr"])
