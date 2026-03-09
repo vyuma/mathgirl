@@ -216,7 +216,7 @@ export default function VRMChat({ isSpeaking }: Props) {
     };
 
     loader.load(
-      "/models/alice.vrm",
+      "/models/kokoa.vrm",
       (gltf: any) => {
         const vrm = gltf.userData.vrm;
         vrmRef.current = vrm;
