@@ -11,11 +11,14 @@ import TextPanel from "@/components/panels/TextPanel";
 import SessionStartDialog from "@/components/SessionStartDialog";
 import SpeechInputBar from "@/components/SpeechInputBar";
 import TopBar from "@/components/TopBar";
-import VRMChat from "@/components/VRMChat";
+import VRMChat, { type VRMChatHandle } from "@/components/VRMChat";
+import VRMMotionDebugPanel from "@/components/VRMMotionDebugPanel";
 import { useChat } from "@/hooks/useChat";
+import { useRef } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 
 export default function MainPage() {
+  const vrmRef = useRef<VRMChatHandle>(null);
   const { status } = useSessionStore();
   const {
     isSpeaking,
@@ -35,7 +38,7 @@ export default function MainPage() {
     <div className="relative w-full h-screen overflow-hidden">
       {/* VRM背景 */}
       <div className="absolute inset-0 z-0">
-        <VRMChat isSpeaking={isSpeaking} />
+        <VRMChat ref={vrmRef} isSpeaking={isSpeaking} />
       </div>
 
       {/* 黒板パネル */}
@@ -70,6 +73,11 @@ export default function MainPage() {
 
       {/* セッション開始ダイアログ */}
       <SessionStartDialog onStarted={handleStart} />
+
+      {/* モーション確認パネル（開発用） */}
+      {process.env.NODE_ENV === "development" && (
+        <VRMMotionDebugPanel vrmRef={vrmRef} />
+      )}
 
       {/* 音声入力バー */}
       {hasUserInteracted && (
