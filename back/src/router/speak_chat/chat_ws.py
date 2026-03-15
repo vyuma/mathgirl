@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -15,6 +16,8 @@ from service.animation import AnimationClient
 from agent.session_chat import SessionAgent
 from db.engine import async_session_factory
 from db.repositories import MessageRepository, SessionRepository
+
+USE_V2 = os.getenv("USE_V2_AGENT", "false").lower() == "true"
 
 router = APIRouter()
 
@@ -174,7 +177,13 @@ async def chat_websocket(websocket: WebSocket):
     user_id = user.user_id
     await websocket.accept()
 
-    streaming_tts = StreamingTTS(agent=SessionAgent())
+    if USE_V2:
+        from agent.v2 import V2Agent
+        from service.redis import get_state_manager
+        agent = V2Agent(state_manager=get_state_manager())
+    else:
+        agent = SessionAgent()
+    streaming_tts = StreamingTTS(agent=agent)
     animation_client = AnimationClient()
     ws_lock = asyncio.Lock()
     bg_tasks: set[asyncio.Task] = set()
@@ -242,6 +251,14 @@ async def chat_websocket(websocket: WebSocket):
                                 text_content = session_obj.text_content
                     except Exception as e:
                         print(f"Failed to fetch session text_content: {e}")
+
+                # V2: session_id をエージェントに設定
+                if USE_V2:
+                    from agent.v2 import V2Agent as _V2Agent
+                    if isinstance(streaming_tts.agent, _V2Agent):
+                        streaming_tts.agent.set_session_id(
+                            request.session_id or str(uuid.uuid4())
+                        )
 
                 # ストリーミング応答を送信
                 async for message in streaming_tts.stream_chat_with_audio(

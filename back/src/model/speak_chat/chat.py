@@ -27,10 +27,16 @@ class TextChunk(BaseModel):
 
 
 class AudioChunk(BaseModel):
-    """音声チャンク（Base64エンコード）"""
+    """音声チャンク（Base64エンコード）
+
+    is_final=False のチャンクはストリーミング中の部分データ。
+    is_final=True はそのインデックスの最終チャンク（空でも可）。
+    フロントは同じ index のチャンクを順番に受け取り、is_final=True で完了と判断する。
+    """
     type: Literal["audio_chunk"] = "audio_chunk"
     index: int
     audio_base64: str
+    is_final: bool = True
 
 
 class CompleteMessage(BaseModel):
@@ -85,6 +91,14 @@ class UnderstandingUpdate(BaseModel):
     topic: str
 
 
+class EmotionUpdate(BaseModel):
+    """感情推定更新メッセージ"""
+    type: Literal["emotion_update"] = "emotion_update"
+    emotion: str
+    intensity: float
+    reason: str
+
+
 class AnimationStarted(BaseModel):
     """アニメーション生成開始メッセージ"""
     type: Literal["animation_started"] = "animation_started"
@@ -121,6 +135,6 @@ class AnimationFailed(BaseModel):
 WSMessage = (
     TextChunk | AudioChunk | CompleteMessage | ErrorMessage
     | BlackboardUpdate | SuggestOperation | HintMessage
-    | SocraticQuestion | UnderstandingUpdate
+    | SocraticQuestion | UnderstandingUpdate | EmotionUpdate
     | AnimationStarted | AnimationProgress | AnimationComplete | AnimationFailed
 )

@@ -1,5 +1,6 @@
 """Session chat agent using LangChain Tool Calling."""
 import ast
+import asyncio
 import json
 import inspect
 import os
@@ -241,6 +242,72 @@ class SessionAgent:
         results = self._pending_tool_results.copy()
         self._pending_tool_results.clear()
         return results
+
+    async def stream_react(
+        self,
+        messages: list[ChatMessage],
+        text_content: str | None = None,
+        meta_info: dict | None = None,
+    ) -> AsyncGenerator[dict, None]:
+        """ReActスタイルのストリーミング実行。
+
+        speakツール結果を他ツールより先にyieldすることで、
+        TTS音声合成を即座に開始できるようにする。
+
+        Yields:
+            dict: ツール結果。typeフィールドで種別判別。
+                  speakが最初にyieldされ、残りは後続する。
+        """
+        langchain_messages = self._build_messages(messages, text_content, meta_info)
+        get_and_clear_tool_results()
+        tool_map = {t.name: t for t in SESSION_TOOLS}
+
+        # LLMレスポンスをストリーミングで受信（ainvokeより早くon_chat_model_endが届く）
+        output = None
+        async for event in self.llm_with_tools.astream_events(langchain_messages, version="v2"):
+            if event["event"] == "on_chat_model_end":
+                output = event["data"]["output"]
+                break
+
+        if output is None:
+            return
+
+        tool_calls = getattr(output, "tool_calls", None) or []
+
+        if not tool_calls:
+            # フォールバック: テキストからツール呼び出しを解析
+            raw_content = str(output.content) if output.content else ""
+            parsed = self._extract_tool_calls_from_text(raw_content)
+            if parsed:
+                print(f"[SessionAgent] stream_react fallback: {len(parsed)} tool call(s)")
+                for t_name, t_args in parsed:
+                    if t_name in tool_map:
+                        tool_map[t_name].invoke(t_args)
+            else:
+                stripped = self._strip_math(raw_content)
+                if stripped:
+                    yield {"type": "speak", "text": stripped}
+                    return
+            for r in get_and_clear_tool_results():
+                yield r
+            return
+
+        # 1. speakを先に実行して即yield → 呼び出し側がTTSを早期開始できる
+        speak_calls = [tc for tc in tool_calls if tc["name"] == "speak"]
+        other_calls = [tc for tc in tool_calls if tc["name"] != "speak"]
+
+        for tc in speak_calls:
+            tool_map["speak"].invoke(tc["args"])
+        for r in get_and_clear_tool_results():
+            yield r
+
+        # 2. 残りのツールを実行してyield
+        for tc in other_calls:
+            name = tc["name"]
+            if name in tool_map:
+                tool_map[name].invoke(tc["args"])
+        for r in get_and_clear_tool_results():
+            yield r
 
     async def generate(
         self,

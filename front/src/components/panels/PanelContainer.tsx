@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Rnd } from "react-rnd";
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido";
 
 const panelConfig: Record<
   PanelId,
@@ -56,6 +56,14 @@ const panelConfig: Record<
     borderColor: "border-teal-200/60",
     iconBg: "bg-teal-400",
     accentColor: "bg-teal-300",
+  },
+  slido: {
+    title: "スライド生成",
+    icon: "📊",
+    gradient: "from-purple-50 to-violet-50",
+    borderColor: "border-purple-200/60",
+    iconBg: "bg-purple-400",
+    accentColor: "bg-purple-300",
   },
 };
 

@@ -27,6 +27,7 @@ export type AudioChunk = {
   type: "audio_chunk";
   index: number;
   audio_base64: string;
+  is_final?: boolean;
 };
 
 export type CompleteMessage = {
@@ -74,6 +75,13 @@ export type UnderstandingUpdate = {
   topic: string;
 };
 
+export type EmotionUpdate = {
+  type: "emotion_update";
+  emotion: string;
+  intensity: number;
+  reason: string;
+};
+
 export type AnimationStarted = {
   type: "animation_started";
   generation_id: number;
@@ -112,6 +120,7 @@ export type WSMessage =
   | HintMessage
   | SocraticQuestion
   | UnderstandingUpdate
+  | EmotionUpdate
   | AnimationStarted
   | AnimationProgress
   | AnimationComplete

@@ -14,6 +14,7 @@ from router.sessions import sessions_router
 from router.notes import notes_router
 from router.ocr import ocr_router
 from router.materials import materials_router
+from router.slido import slides_router
 
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() == "true"
 DEFAULT_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -61,6 +62,7 @@ app.include_router(sessions_router, prefix="/api", tags=["sessions"])
 app.include_router(notes_router, prefix="/api", tags=["notes"])
 app.include_router(ocr_router, prefix="/api", tags=["ocr"])
 app.include_router(materials_router, prefix="/api", tags=["materials"])
+app.include_router(slides_router, prefix="/api", tags=["slides"])
 
 
 @app.get("/")

@@ -1,6 +1,7 @@
 "use client";
 
 import AnimationPanel from "@/components/panels/AnimationPanel";
+import SlidoPanel from "@/components/panels/SlidoPanel";
 import BlackboardPanel from "@/components/BlackboardPanel";
 import DialogLogPanel from "@/components/panels/DialogLogPanel";
 import IconBar from "@/components/panels/IconBar";
@@ -14,12 +15,33 @@ import TopBar from "@/components/TopBar";
 import VRMChat, { type VRMChatHandle } from "@/components/VRMChat";
 import VRMMotionDebugPanel from "@/components/VRMMotionDebugPanel";
 import { useChat } from "@/hooks/useChat";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useEmotionStore } from "@/stores/emotionStore";
+import type { ExpressionName } from "@/lib/vrmExpressions";
 
 export default function MainPage() {
   const vrmRef = useRef<VRMChatHandle>(null);
   const { status } = useSessionStore();
+  const { emotion } = useEmotionStore();
+
+  // 感情 → VRM 表情マッピング
+  const EMOTION_TO_EXPRESSION: Record<string, ExpressionName | null> = {
+    joy: "happy",
+    thinking: "surprised",
+    confused: "sad",
+    encouraging: "relaxed",
+    neutral: null,
+  };
+
+  useEffect(() => {
+    const expressionName = EMOTION_TO_EXPRESSION[emotion];
+    if (expressionName) {
+      vrmRef.current?.playExpression(expressionName);
+    } else {
+      vrmRef.current?.clearExpression();
+    }
+  }, [emotion]);
   const {
     isSpeaking,
     isListening,
@@ -49,6 +71,11 @@ export default function MainPage() {
       {/* アニメーションパネル */}
       <PanelContainer panel="animation">
         <AnimationPanel />
+      </PanelContainer>
+
+      {/* スライドパネル */}
+      <PanelContainer panel="slido">
+        <SlidoPanel />
       </PanelContainer>
 
       {/* トップバー */}

@@ -63,11 +63,23 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - AUTH_REQUIRED=${AUTH_REQUIRED:-true}
       - COEIROINK_API_URL=${COEIROINK_API_URL:-https://coeiroink.yuma-dev.uk}
+      - REDIS_URL=redis://redis:6379
     expose:
       - "8080"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: always
 
   db:
