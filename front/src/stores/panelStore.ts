@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido";
 
 interface PanelConfig {
   visible: boolean;
@@ -26,6 +26,7 @@ const defaultPanels: Record<PanelId, PanelConfig> = {
   log: { visible: false, x: 860, y: 80, width: 350, height: 500 },
   blackboard: { visible: false, x: 440, y: 80, width: 420, height: 400 },
   animation: { visible: false, x: 100, y: 80, width: 480, height: 400 },
+  slido: { visible: false, x: 120, y: 80, width: 700, height: 520 },
 };
 
 export const usePanelStore = create<PanelState>((set) => ({

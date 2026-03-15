@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useStreamingAudio } from "@/lib/audio";
 import { useSpeechRecognition } from "@/lib/stt";
-import { type Speaker, useCoeiroink } from "@/lib/tts/useCoeiroink";
+import { useCoeiroink } from "@/lib/tts/useCoeiroink";
 import {
   type AudioChunk,
   type ChatMessage,
@@ -18,6 +18,8 @@ import { useDialogStore } from "@/stores/dialogStore";
 import { usePanelStore } from "@/stores/panelStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUnderstandingStore } from "@/stores/understandingStore";
+import { type EmotionCategory, useEmotionStore } from "@/stores/emotionStore";
+import { useSpeakerStore } from "@/stores/speakerStore";
 
 export function useChat() {
   const { data: authSession } = useSession();
@@ -32,15 +34,23 @@ export function useChat() {
   const { addFormula } = useBlackboardStore();
   const { startJob, updateProgress, completeJob, failJob } = useAnimationStore();
   const { setLevel, setPendingQuestion, setSuggestion, clearSuggestion } = useUnderstandingStore();
+  const { setEmotion } = useEmotionStore();
+
+  const {
+    selectedSpeaker,
+    selectedStyleIndex,
+    setSpeaker: setStoreSpeaker,
+    setStyleIndex: setStoreStyleIndex,
+  } = useSpeakerStore();
 
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
-  const [selectedStyleIndex, setSelectedStyleIndex] = useState(0);
   const [isTurnComplete, setIsTurnComplete] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const textChunksRef = useRef<Map<number, string>>(new Map());
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prolongedSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSendRef = useRef<(text?: string) => void>(() => {});
+  const handleSilencePromptRef = useRef<() => void>(() => {});
 
   const { speakers, error: speakerError, getSpeakers } = useCoeiroink();
 
@@ -69,7 +79,7 @@ export function useChat() {
 
   const handleAudioChunk = useCallback(
     (chunk: AudioChunk) => {
-      addAudioChunk(chunk.index, chunk.audio_base64);
+      addAudioChunk(chunk.index, chunk.audio_base64, chunk.is_final ?? true);
     },
     [addAudioChunk],
   );
@@ -155,6 +165,13 @@ export function useChat() {
     onAnimationFailed: (data) => {
       failJob(data.job_id, data.error);
     },
+    onEmotionUpdate: (data) => {
+      const valid: EmotionCategory[] = ["joy", "thinking", "confused", "encouraging", "neutral"];
+      const emotion = valid.includes(data.emotion as EmotionCategory)
+        ? (data.emotion as EmotionCategory)
+        : "neutral";
+      setEmotion(emotion, data.intensity, data.reason);
+    },
   });
 
   const {
@@ -181,15 +198,16 @@ export function useChat() {
     }
   }, [isPlaying, isSpeaking, isTurnComplete, startListening]);
 
-  // Load speakers
+  // Load speakers; ストア未選択のときだけ先頭を自動選択
   useEffect(() => {
     const loadSpeakers = async () => {
       const speakerList = await getSpeakers();
-      if (speakerList.length > 0) {
-        setSelectedSpeaker(speakerList[0]);
+      if (speakerList.length > 0 && !selectedSpeaker) {
+        setStoreSpeaker(speakerList[0], 0);
       }
     };
     loadSpeakers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getSpeakers]);
 
   const handleSend = useCallback(
@@ -261,6 +279,33 @@ export function useChat() {
   // handleSend を ref で最新に保つ（useEffect 内から呼ぶため）
   handleSendRef.current = handleSend;
 
+  // 長時間無言のときみくるに話しかけさせる（チャットログには表示しない）
+  const handleSilencePrompt = useCallback(() => {
+    if (!isConnected) return;
+    const speakerUuid = selectedSpeaker?.speaker_uuid ?? "";
+    const currentStyleId = selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
+    const chatMessages: ChatMessage[] = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: "（ユーザーがしばらく黙っています。自然に話しかけてください）" },
+    ];
+    resetAudio();
+    setIsTurnComplete(false);
+    setIsSpeaking(true);
+    setIsProcessing(true);
+    sendChatRequest(chatMessages, speakerUuid, currentStyleId, undefined, sessionId || undefined);
+  }, [
+    isConnected,
+    selectedSpeaker,
+    selectedStyleIndex,
+    messages,
+    sessionId,
+    resetAudio,
+    sendChatRequest,
+    setIsProcessing,
+  ]);
+
+  handleSilencePromptRef.current = handleSilencePrompt;
+
   // 2秒間の無音検知 → 自動送信
   useEffect(() => {
     // 送信中・AI応答中・リスニングしていない場合はタイマー不要
@@ -294,6 +339,33 @@ export function useChat() {
     };
   }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing]);
 
+  // 8秒間まったく話していない → みくるが話しかける
+  useEffect(() => {
+    if (prolongedSilenceTimerRef.current) {
+      clearTimeout(prolongedSilenceTimerRef.current);
+      prolongedSilenceTimerRef.current = null;
+    }
+
+    // 発話中・AI応答中・未接続・リスニングしていない場合はタイマー不要
+    if (isSpeaking || wsProcessing || !isListening || !isConnected) return;
+
+    // transcript または interim がある（ユーザーが話している or 話した）→ タイマー不要
+    if (transcript || interimTranscript) return;
+
+    // 無言が続いている → 8秒後にみくるが話しかける
+    prolongedSilenceTimerRef.current = setTimeout(() => {
+      prolongedSilenceTimerRef.current = null;
+      handleSilencePromptRef.current();
+    }, 8000);
+
+    return () => {
+      if (prolongedSilenceTimerRef.current) {
+        clearTimeout(prolongedSilenceTimerRef.current);
+        prolongedSilenceTimerRef.current = null;
+      }
+    };
+  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing, isConnected]);
+
   const handleStart = useCallback(() => {
     setHasUserInteracted(true);
     initAudio();
@@ -315,8 +387,8 @@ export function useChat() {
     speakers,
     speakerError,
     selectedStyleIndex,
-    setSelectedSpeaker,
-    setSelectedStyleIndex,
+    setSelectedSpeaker: setStoreSpeaker,
+    setSelectedStyleIndex: setStoreStyleIndex,
     handleSend,
     handleStart,
     startListening,

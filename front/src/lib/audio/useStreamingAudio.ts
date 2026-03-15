@@ -64,8 +64,8 @@ export function useStreamingAudio(options: UseStreamingAudioOptions = {}) {
    * 音声データをキューに追加
    */
   const addAudioChunk = useCallback(
-    async (index: number, audioBase64: string) => {
-      await audioQueueRef.current?.addAudio(index, audioBase64);
+    async (index: number, audioBase64: string, isFinal: boolean) => {
+      await audioQueueRef.current?.addAudio(index, audioBase64, isFinal);
     },
     [],
   );
