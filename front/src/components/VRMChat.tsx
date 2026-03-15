@@ -169,8 +169,8 @@ const VRMChat = forwardRef<VRMChatHandle, Props>(function VRMChat(
         cam.position.set(0, 1.3, 2.2);
         cam.lookAt(0, 1.3, 0);
       } else {
-        cam.fov = 50;
-        cam.position.set(0, 1.5, 1.8);
+        cam.fov = 40;
+        cam.position.set(0, 1.6, 1.7);
         cam.lookAt(0, 1.5, 0);
       }
       cam.updateProjectionMatrix();
@@ -392,8 +392,15 @@ const VRMChat = forwardRef<VRMChatHandle, Props>(function VRMChat(
         const modelScale = currentIsMobile ? 1.0 : 1.2;
         vrm.scene.scale.set(modelScale, modelScale, modelScale);
 
-        const bbox = new THREE.Box3().setFromObject(vrm.scene);
-        vrm.scene.position.y = -bbox.min.y;
+       const bbox = new THREE.Box3().setFromObject(vrm.scene);
+
+      // ① Y軸（上下）の調整：数値を足すと上に、引くと下に移動します
+      vrm.scene.position.y = -bbox.min.y + 0.15; // 例：0.5だけ上に上げる
+
+      // ② X軸（左右）の調整：数値をプラスにすると右に、マイナスにすると左に移動します
+      vrm.scene.position.x = 0; // 例：0.2 にすると右へ、-0.2 にすると左へズレます
+        
+        
 
         animate();
       },
