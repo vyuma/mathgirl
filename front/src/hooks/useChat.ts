@@ -288,6 +288,8 @@ export function useChat() {
       ...messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: "（ユーザーがしばらく黙っています。自然に話しかけてください）" },
     ];
+    clearTranscript();
+    stopListening();
     resetAudio();
     setIsTurnComplete(false);
     setIsSpeaking(true);
@@ -299,6 +301,8 @@ export function useChat() {
     selectedStyleIndex,
     messages,
     sessionId,
+    clearTranscript,
+    stopListening,
     resetAudio,
     sendChatRequest,
     setIsProcessing,
