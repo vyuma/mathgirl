@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User
@@ -48,3 +48,11 @@ class UserRepository:
         self.db.add(user)
         await self.db.flush()
         return user
+
+    async def add_affinity(self, user_id: uuid.UUID, gain: int) -> None:
+        await self.db.execute(
+            update(User)
+            .where(User.user_id == user_id)
+            .values(affinity=User.affinity + gain)
+        )
+        await self.db.flush()

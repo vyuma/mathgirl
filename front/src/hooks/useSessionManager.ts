@@ -7,6 +7,7 @@ import { useDialogStore } from "@/stores/dialogStore";
 import { useNoteStore } from "@/stores/noteStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUnderstandingStore } from "@/stores/understandingStore";
+import { useAffinity } from "@/hooks/useAffinity";
 
 export function useSessionManager() {
   const sessionStore = useSessionStore();
@@ -14,6 +15,7 @@ export function useSessionManager() {
   const noteStore = useNoteStore();
   const blackboardStore = useBlackboardStore();
   const understandingStore = useUnderstandingStore();
+  const { fetchAffinity } = useAffinity();
 
   const startSession = useCallback(
     async (textContent?: string) => {
@@ -67,10 +69,11 @@ export function useSessionManager() {
         method: "PATCH",
       });
       sessionStore.setStatus("completed");
+      await fetchAffinity();
     } catch (error) {
       console.error("Failed to end session:", error);
     }
-  }, [sessionStore]);
+  }, [sessionStore, fetchAffinity]);
 
   const resetSession = useCallback(() => {
     sessionStore.reset();
