@@ -101,10 +101,11 @@ export default function MainPage() {
       {/* セッション開始ダイアログ */}
       <SessionStartDialog onStarted={handleStart} />
 
-      {/* モーション確認パネル（開発用） */}
+      {/* モーション確認パネル（開発用）
       {process.env.NODE_ENV === "development" && (
         <VRMMotionDebugPanel vrmRef={vrmRef} />
       )}
+      */}
 
       {/* 音声入力バー */}
       {hasUserInteracted && (
