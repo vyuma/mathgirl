@@ -18,7 +18,9 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Backend (FastAPI)                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  router/speak_chat/                                              │
+│  router/speak_chat/ 
+
+                                             │
 │    ├── chat_ws.py (WebSocket エンドポイント)                       │
 │    ├── chat.py (REST API フォールバック)                           │
 │    ├── speakers.py (スピーカー一覧)                                │
@@ -31,7 +33,7 @@
 │    └── turntaking/predictor.py (VAPモデル予測)                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  agent/original_chat/                                            │
-│    ├── agent.py (AliceAgent - Gemini 3.1 Flash Lite)             │
+│    ├── agent.py (AliceAgent - Gemini 2.5 Flash Lite)             │
 │    ├── prompt.py (システムプロンプト)                              │
 │    └── sentence_splitter.py (文分割)                              │
 └─────────────────────────────────────────────────────────────────┘
@@ -63,7 +65,7 @@
 | 機能 | ファイル | 説明 |
 |------|---------|------|
 | **チャットWS** | `chat_ws.py` | WebSocket経由でリクエスト受信、テキスト+音声をストリーミング返却 |
-| **AIエージェント** | `agent.py` | Gemini 3.1 Flash Lite、文単位ストリーミング生成 |
+| **AIエージェント** | `agent.py` | Gemini 2.5 Flash Lite、文単位ストリーミング生成 |
 | **ストリーミングTTS** | `streaming_tts.py` | LLM出力を並列TTS変換、順序保証で配信 |
 | **ターンテイキング** | `predictor.py` | VAPモデルで発話終了予測 (未使用?) |
 
