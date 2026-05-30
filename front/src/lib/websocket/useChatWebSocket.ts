@@ -12,7 +12,9 @@ import type {
   ChatRequest,
   CompleteMessage,
   ConnectionState,
+  EmotionUpdate,
   HintMessage,
+  SlideComplete,
   SocraticQuestion,
   SuggestOperation,
   TextChunk,
@@ -35,6 +37,8 @@ type UseChatWebSocketOptions = {
   onAnimationProgress?: (data: AnimationProgress) => void;
   onAnimationComplete?: (data: AnimationComplete) => void;
   onAnimationFailed?: (data: AnimationFailed) => void;
+  onEmotionUpdate?: (data: EmotionUpdate) => void;
+  onSlideComplete?: (data: SlideComplete) => void;
 };
 
 function getDefaultWsUrl(): string {
@@ -173,6 +177,12 @@ export function useChatWebSocket(options: UseChatWebSocketOptions = {}) {
             break;
           case "animation_failed":
             cbs.onAnimationFailed?.(message);
+            break;
+          case "emotion_update":
+            cbs.onEmotionUpdate?.(message);
+            break;
+          case "slide_complete":
+            cbs.onSlideComplete?.(message);
             break;
         }
       } catch (e) {

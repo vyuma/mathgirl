@@ -2,7 +2,7 @@
 
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido" | "timer";
 
 const icons: {
   id: PanelId;
@@ -39,6 +39,18 @@ const icons: {
     label: "アニメ",
     emoji: "\u{1F3AC}",
     activeClass: "bg-teal-500 text-white shadow-md",
+  },
+  {
+    id: "slido",
+    label: "スライド",
+    emoji: "\u{1F4CA}",
+    activeClass: "bg-purple-500 text-white shadow-md",
+  },
+  {
+    id: "timer",
+    label: "タイマー",
+    emoji: "\u{23F1}\u{FE0F}",
+    activeClass: "bg-red-500 text-white shadow-md",
   },
 ];
 

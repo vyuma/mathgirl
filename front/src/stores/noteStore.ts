@@ -8,13 +8,11 @@ interface ImagePreview {
 interface NoteState {
   content: string;
   isDirty: boolean;
-  viewMode: "edit" | "preview" | "split";
   isOcrProcessing: boolean;
   ocrError: string | null;
   imagePreviews: ImagePreview[];
 
   setContent: (content: string) => void;
-  setViewMode: (mode: "edit" | "preview" | "split") => void;
   setDirty: (val: boolean) => void;
   setOcrProcessing: (val: boolean) => void;
   setOcrError: (err: string | null) => void;
@@ -28,13 +26,11 @@ let previewIdCounter = 0;
 export const useNoteStore = create<NoteState>((set, get) => ({
   content: "",
   isDirty: false,
-  viewMode: "edit",
   isOcrProcessing: false,
   ocrError: null,
   imagePreviews: [],
 
   setContent: (content) => set({ content, isDirty: true }),
-  setViewMode: (viewMode) => set({ viewMode }),
   setDirty: (val) => set({ isDirty: val }),
   setOcrProcessing: (val) => set({ isOcrProcessing: val }),
   setOcrError: (err) => set({ ocrError: err }),
@@ -61,7 +57,6 @@ export const useNoteStore = create<NoteState>((set, get) => ({
     set({
       content: "",
       isDirty: false,
-      viewMode: "edit",
       isOcrProcessing: false,
       ocrError: null,
       imagePreviews: [],

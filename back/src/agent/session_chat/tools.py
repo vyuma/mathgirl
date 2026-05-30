@@ -143,4 +143,43 @@ def edit_animation(generation_id: int, prior_video_id: str, enhance_prompt: str)
     return f"アニメーション編集をリクエストしました: {enhance_prompt}"
 
 
-SESSION_TOOLS = [speak, write_to_blackboard, suggest_operation, pose_question, estimate_understanding, generate_animation, edit_animation]
+@tool
+def estimate_emotion(emotion: str, intensity: float, reason: str) -> str:
+    """学習者の感情状態を推定してキャラクターの表情を更新する。会話の節目や感情変化時に使用する。
+
+    Args:
+        emotion: 感情カテゴリ（joy / thinking / confused / encouraging / neutral のいずれか）
+            - joy: 正解・理解の達成感・喜び
+            - thinking: 考え中・疑問を持っている
+            - confused: 困惑・分からない・詰まっている
+            - encouraging: 励ます・応援・前向きな声かけ
+            - neutral: 通常・会話の流れが安定している
+        intensity: 感情の強度（0.0〜1.0）
+        reason: この感情を推定した根拠
+    """
+    _tool_results.append({
+        "type": "emotion_update",
+        "emotion": emotion,
+        "intensity": intensity,
+        "reason": reason,
+    })
+    return f"感情を更新しました: {emotion} (強度: {intensity})"
+
+
+@tool
+def generate_slides(topic: str, slide_count: int = 8) -> str:
+    """現在の学習トピックについてのスライドを生成する。まとめや振り返り、新しい概念の導入に使う。
+
+    Args:
+        topic: スライドのトピック（例：「二次方程式の解の公式」「三角関数の基本」）
+        slide_count: スライド枚数（デフォルト8枚）
+    """
+    _tool_results.append({
+        "type": "slide_request",
+        "topic": topic,
+        "slide_count": slide_count,
+    })
+    return f"スライド生成をリクエストしました: {topic}"
+
+
+SESSION_TOOLS = [speak, write_to_blackboard, suggest_operation, pose_question, estimate_understanding, estimate_emotion, generate_animation, edit_animation, generate_slides]

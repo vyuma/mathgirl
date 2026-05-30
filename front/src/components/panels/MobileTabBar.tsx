@@ -2,7 +2,7 @@
 
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard" | "animation";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido" | "timer";
 
 const tabs: {
   id: PanelId;
@@ -45,6 +45,20 @@ const tabs: {
     icon: "\u{1F3AC}",
     activeBg: "bg-teal-100",
     activeText: "text-teal-700",
+  },
+  {
+    id: "slido",
+    label: "スライド",
+    icon: "\u{1F4CA}",
+    activeBg: "bg-purple-100",
+    activeText: "text-purple-700",
+  },
+  {
+    id: "timer",
+    label: "タイマー",
+    icon: "\u{23F1}\u{FE0F}",
+    activeBg: "bg-red-100",
+    activeText: "text-red-700",
   },
 ];
 

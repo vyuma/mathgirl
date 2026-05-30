@@ -27,6 +27,7 @@ export type AudioChunk = {
   type: "audio_chunk";
   index: number;
   audio_base64: string;
+  is_final?: boolean;
 };
 
 export type CompleteMessage = {
@@ -74,6 +75,13 @@ export type UnderstandingUpdate = {
   topic: string;
 };
 
+export type EmotionUpdate = {
+  type: "emotion_update";
+  emotion: string;
+  intensity: number;
+  reason: string;
+};
+
 export type AnimationStarted = {
   type: "animation_started";
   generation_id: number;
@@ -102,6 +110,14 @@ export type AnimationFailed = {
   error: string;
 };
 
+export type SlideComplete = {
+  type: "slide_complete";
+  topic: string;
+  slide_id: string;
+  html: string;
+  markdown: string;
+};
+
 export type WSMessage =
   | TextChunk
   | AudioChunk
@@ -112,10 +128,12 @@ export type WSMessage =
   | HintMessage
   | SocraticQuestion
   | UnderstandingUpdate
+  | EmotionUpdate
   | AnimationStarted
   | AnimationProgress
   | AnimationComplete
-  | AnimationFailed;
+  | AnimationFailed
+  | SlideComplete;
 
 // 接続状態
 export type ConnectionState =

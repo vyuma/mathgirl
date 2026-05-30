@@ -1,4 +1,6 @@
 import os
+from typing import AsyncGenerator
+
 import httpx
 from model.speak_chat.speaker import Speaker, SpeakerStyle
 
@@ -82,3 +84,47 @@ class CoeiroinkClient:
         response.raise_for_status()
 
         return response.content
+
+    async def synthesize_stream(
+        self,
+        text: str,
+        speaker_uuid: str,
+        style_id: int = 0,
+        speed_scale: float = 1.0,
+        volume_scale: float = 1.0,
+        pitch_scale: float = 0.0,
+        intonation_scale: float = 1.0,
+        chunk_size: int = 4096,
+    ) -> AsyncGenerator[bytes, None]:
+        """テキストを音声に変換し、チャンク単位でストリーミング取得。
+
+        HTTPレスポンスを受信しながら順次 yield するため、
+        サーバーがチャンク転送対応の場合は合成完了を待たずに先頭データが届く。
+        """
+        body = {
+            "speakerUuid": speaker_uuid,
+            "styleId": style_id,
+            "text": text,
+            "speedScale": speed_scale,
+            "volumeScale": volume_scale,
+            "pitchScale": pitch_scale,
+            "intonationScale": intonation_scale,
+            "prePhonemeLength": 0.1,
+            "postPhonemeLength": 0.5,
+            "outputSamplingRate": 24000,
+            "startTrimBuffer": 0.0,
+            "endTrimBuffer": 0.0,
+            "pauseStartTrimBuffer": 0.0,
+            "pauseEndTrimBuffer": 0.0,
+        }
+
+        client = await self._get_client()
+        async with client.stream(
+            "POST",
+            "/v1/synthesis",
+            json=body,
+            headers={"Content-Type": "application/json"},
+        ) as response:
+            response.raise_for_status()
+            async for chunk in response.aiter_bytes(chunk_size=chunk_size):
+                yield chunk

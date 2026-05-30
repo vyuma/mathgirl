@@ -7,7 +7,7 @@
       "dependencies": {
         "@cortex-js/compute-engine": "^0.35.6",
         "@pixiv/three-vrm": "^3.4.5",
-        "@pixiv/three-vrm-animation": "^3.4.5",
+        "@pixiv/three-vrm-animation": "^3.5.0",
         "add": "^2.0.6",
         "dotenv": "^17.2.4",
         "katex": "^0.16.28",
@@ -171,7 +171,7 @@
 
     "@pixiv/three-vrm": ["@pixiv/three-vrm@3.4.5", "", { "dependencies": { "@pixiv/three-vrm-core": "3.4.5", "@pixiv/three-vrm-materials-hdr-emissive-multiplier": "3.4.5", "@pixiv/three-vrm-materials-mtoon": "3.4.5", "@pixiv/three-vrm-materials-v0compat": "3.4.5", "@pixiv/three-vrm-node-constraint": "3.4.5", "@pixiv/three-vrm-springbone": "3.4.5" }, "peerDependencies": { "three": ">=0.137" } }, "sha512-LbdlsLG2b4hvgjfUKObkl/wxkBeTwIqHJsPJMJTO4JU7mQ3KUwcwdclzoqW6ipQfz2e/QAsv+IzF40pGwaYSnA=="],
 
-    "@pixiv/three-vrm-animation": ["@pixiv/three-vrm-animation@3.4.5", "", { "dependencies": { "@pixiv/three-vrm-core": "3.4.5", "@pixiv/types-vrmc-vrm-1.0": "3.4.5", "@pixiv/types-vrmc-vrm-animation-1.0": "3.4.5" }, "peerDependencies": { "three": ">=0.137" } }, "sha512-lG13OHGQ698Nby7SBGiPLcQLvReV/omZkJooR/0upB5qK6Idu8smZeQczmo+zweRPrc/QWbNHDo9vO5rU52gig=="],
+    "@pixiv/three-vrm-animation": ["@pixiv/three-vrm-animation@3.5.0", "", { "dependencies": { "@pixiv/three-vrm-core": "3.5.0", "@pixiv/types-vrmc-vrm-1.0": "3.5.0", "@pixiv/types-vrmc-vrm-animation-1.0": "3.5.0" }, "peerDependencies": { "three": ">=0.137" } }, "sha512-CcwVBqE9JMGHOcaqYSQEcXeIhWXdKkSI8//y8L4q3XTMgxYfrD1ZGLgXxXFpOuSyRZZa4Teig5VA1yno2QWvmA=="],
 
     "@pixiv/three-vrm-core": ["@pixiv/three-vrm-core@3.4.5", "", { "dependencies": { "@pixiv/types-vrm-0.0": "3.4.5", "@pixiv/types-vrmc-vrm-1.0": "3.4.5" }, "peerDependencies": { "three": ">=0.137" } }, "sha512-w52JUwNUbeuGBLqc7/wVMGrN2jgyz67kQ3OplFT4ACF9qlepALXwUBrQJPlkf1Qtqrfbdd50kYJTQ2EO4m8Ang=="],
 
@@ -197,9 +197,9 @@
 
     "@pixiv/types-vrmc-springbone-extended-collider-1.0": ["@pixiv/types-vrmc-springbone-extended-collider-1.0@3.4.5", "", {}, "sha512-e/dTjBwHCDpUE//FmSMkcDrXKl9iY8Tr3QNxQrWZDHKNvPoGvNvjsFsSjtVBniZe9FsVI7gou1qIZbdULE1jIg=="],
 
-    "@pixiv/types-vrmc-vrm-1.0": ["@pixiv/types-vrmc-vrm-1.0@3.4.5", "", {}, "sha512-6OIA1IinZ7h8DdxW8aToWowfHgr8qJ31cx2so7Tdj65eOIi59ohvskbWy3SFDG9Zt2tvN/M7Rr9W2rkb8LMFUA=="],
+    "@pixiv/types-vrmc-vrm-1.0": ["@pixiv/types-vrmc-vrm-1.0@3.5.0", "", {}, "sha512-M3RDK2Uol86zLtum0GC5adNt2H/eI8ydfXwkaSXFxAMZrRFI3zH0cfkW4Kn2p9zZXcm5Wx02kGL2azNGxv+GXw=="],
 
-    "@pixiv/types-vrmc-vrm-animation-1.0": ["@pixiv/types-vrmc-vrm-animation-1.0@3.4.5", "", { "dependencies": { "@pixiv/types-vrmc-vrm-1.0": "2.0.3" } }, "sha512-pUyhddl1DAb+jhCHLvbVIMeKUCfR5nzRV30qJ7Pvu2o6MToPlI6KvDnYVgFDx0k7g3rJKmTm6vbPpqMP6OgRxQ=="],
+    "@pixiv/types-vrmc-vrm-animation-1.0": ["@pixiv/types-vrmc-vrm-animation-1.0@3.5.0", "", { "dependencies": { "@pixiv/types-vrmc-vrm-1.0": "2.0.3" } }, "sha512-ZJ1HiNpuSLEb6LpTW6jVqYTTg2/AB3j6uuxF6YNI1RrqD3wzv4nTFUfgsmSNxiET4geThiFZpZzPeXHSwcG14Q=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
@@ -591,6 +591,10 @@
 
     "@langchain/langgraph-sdk/uuid": ["uuid@13.0.0", "", { "bin": { "uuid": "dist-node/bin/uuid" } }, "sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w=="],
 
+    "@pixiv/three-vrm-animation/@pixiv/three-vrm-core": ["@pixiv/three-vrm-core@3.5.0", "", { "dependencies": { "@pixiv/types-vrm-0.0": "3.5.0", "@pixiv/types-vrmc-vrm-1.0": "3.5.0" }, "peerDependencies": { "three": ">=0.137" } }, "sha512-Z3op1F2EZWF+DpZnsUIWBHwd32BOO8AeojdNZSPribt5ORhbBbpcY2TO570CO33bBcAuAABV3iwu/mNLy4Xg6w=="],
+
+    "@pixiv/three-vrm-core/@pixiv/types-vrmc-vrm-1.0": ["@pixiv/types-vrmc-vrm-1.0@3.4.5", "", {}, "sha512-6OIA1IinZ7h8DdxW8aToWowfHgr8qJ31cx2so7Tdj65eOIi59ohvskbWy3SFDG9Zt2tvN/M7Rr9W2rkb8LMFUA=="],
+
     "@pixiv/types-vrmc-vrm-animation-1.0/@pixiv/types-vrmc-vrm-1.0": ["@pixiv/types-vrmc-vrm-1.0@2.0.3", "", {}, "sha512-RMP34Bk1qLFQv/CRB1Zqvn2qMFfWQfP2Hms5QrrfoBsW9XroZdEe0zPLNbGmUPYh4F7VtBb+B7+RCuymRtpehA=="],
 
     "@swc/helpers/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
@@ -616,5 +620,7 @@
     "@langchain/langgraph-sdk/p-queue/eventemitter3": ["eventemitter3@5.0.4", "", {}, "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw=="],
 
     "@langchain/langgraph-sdk/p-queue/p-timeout": ["p-timeout@7.0.1", "", {}, "sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg=="],
+
+    "@pixiv/three-vrm-animation/@pixiv/three-vrm-core/@pixiv/types-vrm-0.0": ["@pixiv/types-vrm-0.0@3.5.0", "", {}, "sha512-4YyB3NjRJBA8Q9nAO9oGcJDcmd9pCTgy7tH16yN56q9qyRfOrQGGJ8GzMX7S7Iy6/9x+KiADuSUwtDVy8/U32Q=="],
   }
 }

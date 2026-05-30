@@ -15,7 +15,7 @@ export function useCoeiroink() {
     setError(null);
 
     try {
-      const response = await fetch("/api/coeiroink/speakers");
+      const response = await fetch("/api/backend/speakers");
       if (!response.ok) {
         throw new Error(`Failed to fetch speakers: ${response.status}`);
       }

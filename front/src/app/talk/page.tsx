@@ -1,6 +1,8 @@
 "use client";
 
 import AnimationPanel from "@/components/panels/AnimationPanel";
+import SlidoPanel from "@/components/panels/SlidoPanel";
+import TimerPanel from "@/components/panels/TimerPanel";
 import BlackboardPanel from "@/components/BlackboardPanel";
 import DialogLogPanel from "@/components/panels/DialogLogPanel";
 import IconBar from "@/components/panels/IconBar";
@@ -11,12 +13,37 @@ import TextPanel from "@/components/panels/TextPanel";
 import SessionStartDialog from "@/components/SessionStartDialog";
 import SpeechInputBar from "@/components/SpeechInputBar";
 import TopBar from "@/components/TopBar";
-import VRMChat from "@/components/VRMChat";
+import VRMChat, { type VRMChatHandle } from "@/components/VRMChat";
+import VRMMotionDebugPanel from "@/components/VRMMotionDebugPanel";
 import { useChat } from "@/hooks/useChat";
+import { useTimerController } from "@/hooks/useTimerController";
+import { useRef, useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useEmotionStore } from "@/stores/emotionStore";
+import type { ExpressionName } from "@/lib/vrmExpressions";
 
 export default function MainPage() {
+  const vrmRef = useRef<VRMChatHandle>(null);
   const { status } = useSessionStore();
+  const { emotion } = useEmotionStore();
+
+  // 感情 → VRM 表情マッピング
+  const EMOTION_TO_EXPRESSION: Record<string, ExpressionName | null> = {
+    joy: "happy",
+    thinking: "surprised",
+    confused: "sad",
+    encouraging: "relaxed",
+    neutral: null,
+  };
+
+  useEffect(() => {
+    const expressionName = EMOTION_TO_EXPRESSION[emotion];
+    if (expressionName) {
+      vrmRef.current?.playExpression(expressionName);
+    } else {
+      vrmRef.current?.clearExpression();
+    }
+  }, [emotion]);
   const {
     isSpeaking,
     isListening,
@@ -27,15 +54,18 @@ export default function MainPage() {
     hasUserInteracted,
     handleStart,
     handleSend,
+    handleTimerAnnouncement,
     startListening,
     stopListening,
   } = useChat();
+
+  useTimerController(handleTimerAnnouncement);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
       {/* VRM背景 */}
       <div className="absolute inset-0 z-0">
-        <VRMChat isSpeaking={isSpeaking} />
+        <VRMChat ref={vrmRef} isSpeaking={isSpeaking} />
       </div>
 
       {/* 黒板パネル */}
@@ -46,6 +76,16 @@ export default function MainPage() {
       {/* アニメーションパネル */}
       <PanelContainer panel="animation">
         <AnimationPanel />
+      </PanelContainer>
+
+      {/* スライドパネル */}
+      <PanelContainer panel="slido">
+        <SlidoPanel />
+      </PanelContainer>
+
+      {/* タイマーパネル */}
+      <PanelContainer panel="timer">
+        <TimerPanel />
       </PanelContainer>
 
       {/* トップバー */}
@@ -70,6 +110,7 @@ export default function MainPage() {
 
       {/* セッション開始ダイアログ */}
       <SessionStartDialog onStarted={handleStart} />
+
 
       {/* 音声入力バー */}
       {hasUserInteracted && (
