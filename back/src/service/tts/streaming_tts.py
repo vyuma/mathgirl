@@ -27,6 +27,7 @@ class StreamingTTS:
         self.agent = agent or AliceAgent()
         self.tts_client = tts_client or CoeiroinkClient()
         self._pending_animation_requests: list[dict] = []
+        self._pending_slide_requests: list[dict] = []
 
     @staticmethod
     def _tool_result_to_message(result: dict) -> WSMessage | None:
@@ -106,6 +107,7 @@ class StreamingTTS:
             pass
         if isinstance(self.agent, _v2_types):
             self._pending_animation_requests.clear()
+            self._pending_slide_requests.clear()
             speak_texts: list[str] = []
             # index → asyncio.Queue[bytes | None]
             tts_queues: list[asyncio.Queue] = []
@@ -169,6 +171,9 @@ class StreamingTTS:
 
                 elif r_type in ("animation_request", "animation_edit_request"):
                     self._pending_animation_requests.append(result)
+
+                elif r_type == "slide_request":
+                    self._pending_slide_requests.append(result)
 
                 else:
                     msg = self._tool_result_to_message(result)
@@ -281,6 +286,12 @@ class StreamingTTS:
         """取得して保留中のアニメーションリクエストをクリア"""
         reqs = self._pending_animation_requests.copy()
         self._pending_animation_requests.clear()
+        return reqs
+
+    def get_pending_slide_requests(self) -> list[dict]:
+        """取得して保留中のスライドリクエストをクリア"""
+        reqs = self._pending_slide_requests.copy()
+        self._pending_slide_requests.clear()
         return reqs
 
     async def close(self):

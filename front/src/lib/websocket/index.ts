@@ -11,6 +11,7 @@ export type {
   ConnectionState,
   ErrorMessage,
   HintMessage,
+  SlideComplete,
   SocraticQuestion,
   SuggestOperation,
   TextChunk,

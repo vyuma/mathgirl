@@ -14,7 +14,7 @@ class V2Agent:
     def __init__(
         self,
         state_manager: SessionStateManager,
-        model_name: str = "gemini-2.5-flash-lite",
+        model_name: str = "gemini-3.1-flash-lite-preview",
     ):
         self._state_manager = state_manager
         self._meta_agent = MetaAgent(model_name=model_name)

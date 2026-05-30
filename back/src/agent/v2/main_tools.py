@@ -97,7 +97,18 @@ class MainToolsContext:
             results.append({"type": "animation_edit_request", "generation_id": generation_id, "prior_video_id": prior_video_id, "enhance_prompt": enhance_prompt})
             return f"アニメーション編集をリクエストしました: {enhance_prompt}"
 
-        return [speak, write_to_blackboard, suggest_operation, pose_question, generate_animation, edit_animation]
+        @tool
+        def generate_slides(topic: str, slide_count: int = 8) -> str:
+            """現在の学習トピックについてのスライドを生成する。まとめや振り返り、新しい概念の導入に使う。
+
+            Args:
+                topic: スライドのトピック（例：「二次方程式の解の公式」「三角関数の基本」）
+                slide_count: スライド枚数（デフォルト8枚）
+            """
+            results.append({"type": "slide_request", "topic": topic, "slide_count": slide_count})
+            return f"スライド生成をリクエストしました: {topic}"
+
+        return [speak, write_to_blackboard, suggest_operation, pose_question, generate_animation, edit_animation, generate_slides]
 
     def pop_results(self) -> list[dict[str, Any]]:
         results = self._results.copy()

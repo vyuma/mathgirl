@@ -166,4 +166,20 @@ def estimate_emotion(emotion: str, intensity: float, reason: str) -> str:
     return f"感情を更新しました: {emotion} (強度: {intensity})"
 
 
-SESSION_TOOLS = [speak, write_to_blackboard, suggest_operation, pose_question, estimate_understanding, estimate_emotion, generate_animation, edit_animation]
+@tool
+def generate_slides(topic: str, slide_count: int = 8) -> str:
+    """現在の学習トピックについてのスライドを生成する。まとめや振り返り、新しい概念の導入に使う。
+
+    Args:
+        topic: スライドのトピック（例：「二次方程式の解の公式」「三角関数の基本」）
+        slide_count: スライド枚数（デフォルト8枚）
+    """
+    _tool_results.append({
+        "type": "slide_request",
+        "topic": topic,
+        "slide_count": slide_count,
+    })
+    return f"スライド生成をリクエストしました: {topic}"
+
+
+SESSION_TOOLS = [speak, write_to_blackboard, suggest_operation, pose_question, estimate_understanding, estimate_emotion, generate_animation, edit_animation, generate_slides]
