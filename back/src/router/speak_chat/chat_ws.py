@@ -293,34 +293,57 @@ async def chat_websocket(websocket: WebSocket):
                         )
 
                 # ストリーミング応答を送信
-                async for message in streaming_tts.stream_chat_with_audio(
-                    messages=request.messages,
-                    goal=request.goal,
-                    speaker_uuid=request.speaker_uuid,
-                    style_id=request.style_id,
-                    text_content=text_content,
-                ):
-                    await _send_ws_message(websocket, ws_lock, message)
+                # 終端シグナル（complete または error）を必ず1つ送り、
+                # フロントが isProcessing のまま固まるのを防ぐ。
+                complete_sent = False
+                terminal_sent = False
+                try:
+                    async for message in streaming_tts.stream_chat_with_audio(
+                        messages=request.messages,
+                        goal=request.goal,
+                        speaker_uuid=request.speaker_uuid,
+                        style_id=request.style_id,
+                        text_content=text_content,
+                    ):
+                        await _send_ws_message(websocket, ws_lock, message)
 
-                    # 完了メッセージでアシスタント応答をDBに保存
-                    if isinstance(message, CompleteMessage):
-                        await _save_message(
-                            request.session_id, "assistant", message.full_text
+                        # 完了メッセージでアシスタント応答をDBに保存
+                        if isinstance(message, CompleteMessage):
+                            complete_sent = True
+                            terminal_sent = True
+                            await _save_message(
+                                request.session_id, "assistant", message.full_text
+                            )
+                except Exception as e:
+                    print(f"Streaming error: {e}")
+                    await _send_ws_message(
+                        websocket, ws_lock, ErrorMessage(message=f"Error: {str(e)}")
+                    )
+                    terminal_sent = True
+                finally:
+                    # complete も error も送られていない異常終了でも終端を保証する
+                    if not terminal_sent:
+                        await _send_ws_message(
+                            websocket,
+                            ws_lock,
+                            ErrorMessage(message="応答が途中で終了しました"),
                         )
 
-                # アニメーションリクエストをバックグラウンドで処理
-                anim_requests = streaming_tts.get_pending_animation_requests()
-                if anim_requests:
-                    await _handle_animation_requests(
-                        websocket, ws_lock, animation_client, anim_requests, bg_tasks
-                    )
+                # 正常完了時のみ後続のアニメ/スライドリクエストを処理
+                if complete_sent:
+                    # アニメーションリクエストをバックグラウンドで処理
+                    anim_requests = streaming_tts.get_pending_animation_requests()
+                    if anim_requests:
+                        await _handle_animation_requests(
+                            websocket, ws_lock, animation_client, anim_requests, bg_tasks
+                        )
 
-                # スライドリクエストを処理
-                slide_requests = streaming_tts.get_pending_slide_requests()
-                if slide_requests:
-                    await _handle_slide_requests(
-                        websocket, ws_lock, slide_requests, text_content
-                    )
+                    # スライドリクエストを処理
+                    slide_requests = streaming_tts.get_pending_slide_requests()
+                    if slide_requests:
+                        await _handle_slide_requests(
+                            websocket, ws_lock, slide_requests, text_content
+                        )
 
             except json.JSONDecodeError:
                 error = ErrorMessage(message="Invalid JSON")

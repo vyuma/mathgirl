@@ -85,13 +85,23 @@ export const motions: Record<MotionName, MotionDef> = {
     },
   },
 
-  /** うなずく */
+  /**
+   * うなずく: あごを下向きに「こくっ、こく」と2回下げる控えめな相づち
+   *
+   * - x+ 方向（あごが下を向く向き）にだけ動かす（負にすると上向きになるので注意）
+   * - 0→下→戻る を2回くり返す（下より上には行かない）
+   * - 2回目はやや小さくして自然に減衰させる
+   * - 振幅は約7度（0.12rad）と小さめ
+   */
   nod: {
-    duration: 1500,
+    duration: 1100,
     getBones: (p) => {
-      const envelope = Math.sin(p * Math.PI);
-      const nod = Math.sin(p * Math.PI * 4) * 0.18 * envelope;
-      return { head: { x: nod } };
+      const AMOUNT = 0.12; // うなずきの角度（ラジアン, 約7度）
+      // (1 - cos) で 0→1→0 を2周期分 = 2回うなずく。常に 0 以上（下向きのみ）
+      const dips = (1 - Math.cos(p * Math.PI * 4)) / 2;
+      // 2回目をやや小さく（自然な減衰）
+      const decay = 1 - 0.2 * p;
+      return { head: { x: dips * decay * AMOUNT } };
     },
   },
 

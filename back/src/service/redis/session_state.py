@@ -8,6 +8,8 @@ import redis.asyncio as aioredis
 from agent.v2.types import MetaState
 
 _SESSION_TTL = 7 * 24 * 60 * 60  # 7 days in seconds
+# Redisが遅い/落ちている場合に無限待ちでターンを止めないためのタイムアウト（秒）
+_SOCKET_TIMEOUT = 2.0
 
 
 class SessionStateManager:
@@ -17,7 +19,12 @@ class SessionStateManager:
     """
 
     def __init__(self, redis_url: str):
-        self._client: aioredis.Redis = aioredis.from_url(redis_url, decode_responses=True)
+        self._client: aioredis.Redis = aioredis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_timeout=_SOCKET_TIMEOUT,
+            socket_connect_timeout=_SOCKET_TIMEOUT,
+        )
 
     def _key(self, session_id: str) -> str:
         return f"session:{session_id}:meta"
