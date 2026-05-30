@@ -20,12 +20,14 @@ import { useTimerController } from "@/hooks/useTimerController";
 import { useRef, useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useEmotionStore } from "@/stores/emotionStore";
+import { useUnderstandingStore } from "@/stores/understandingStore";
 import type { ExpressionName } from "@/lib/vrmExpressions";
 
 export default function MainPage() {
   const vrmRef = useRef<VRMChatHandle>(null);
   const { status } = useSessionStore();
   const { emotion } = useEmotionStore();
+  const { level } = useUnderstandingStore();
 
   // 感情 → VRM 表情マッピング
   const EMOTION_TO_EXPRESSION: Record<string, ExpressionName | null> = {
@@ -44,6 +46,15 @@ export default function MainPage() {
       vrmRef.current?.clearExpression();
     }
   }, [emotion]);
+
+  // 理解度が上がったタイミングでうなずく
+  const prevLevelRef = useRef(0);
+  useEffect(() => {
+    if (level > prevLevelRef.current) {
+      vrmRef.current?.playMotion("nod");
+    }
+    prevLevelRef.current = level;
+  }, [level]);
   const {
     isSpeaking,
     isListening,

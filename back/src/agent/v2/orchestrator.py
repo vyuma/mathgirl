@@ -1,4 +1,5 @@
 """V2Agent: orchestrates MetaAgent + MainAgent with the same interface as SessionAgent."""
+import asyncio
 import uuid
 from typing import AsyncGenerator
 
@@ -6,6 +7,12 @@ from model.speak_chat.chat import ChatMessage
 from service.redis.session_state import SessionStateManager
 from .meta_agent import MetaAgent
 from .main_agent import MainAgent
+from .types import MetaState, MetaContext
+
+# メタ処理（Redis + 追加のLLM呼び出し）がハングした場合のタイムアウト秒数
+_META_TIMEOUT_SECONDS = 8.0
+# フォールバック時にMainAgentへ渡すデフォルト指示
+_DEFAULT_STRATEGY_INSTRUCTION = "ソクラテス式で問いかけてください。"
 
 
 class V2Agent:
@@ -14,7 +21,7 @@ class V2Agent:
     def __init__(
         self,
         state_manager: SessionStateManager,
-        model_name: str = "gemini-3.1-flash-lite-preview",
+        model_name: str = "gemini-3.1-flash-lite",
     ):
         self._state_manager = state_manager
         self._meta_agent = MetaAgent(model_name=model_name)
@@ -35,11 +42,24 @@ class V2Agent:
         Yields side effects (EmotionUpdate/UnderstandingUpdate) first,
         then MainAgent content (speak, blackboard, etc.).
         """
-        meta_context, side_effects = await self._meta_agent.analyze_and_update(
-            session_id=self._session_id,
-            messages=messages,
-            state_manager=self._state_manager,
-        )
+        # メタ処理は失敗/ハングしてもMainAgentの返信を止めないよう、
+        # try/except + タイムアウトでデフォルトのMetaContextにフォールバックする。
+        try:
+            meta_context, side_effects = await asyncio.wait_for(
+                self._meta_agent.analyze_and_update(
+                    session_id=self._session_id,
+                    messages=messages,
+                    state_manager=self._state_manager,
+                ),
+                timeout=_META_TIMEOUT_SECONDS,
+            )
+        except Exception as e:
+            print(f"MetaAgent failed, falling back to default MetaContext: {e}")
+            meta_context = MetaContext(
+                state=MetaState(),
+                strategy_instruction=_DEFAULT_STRATEGY_INSTRUCTION,
+            )
+            side_effects = []
 
         for effect in side_effects:
             yield effect
