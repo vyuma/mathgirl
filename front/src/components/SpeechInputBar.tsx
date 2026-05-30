@@ -73,12 +73,12 @@ export default function SpeechInputBar({
 
   return (
     <div className="absolute bottom-35 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-2xl">
-      {/* Live transcript display (音声認識中のリアルタイムテキスト表示) */}
-      {isListening && displayText && (
+      {/* Live transcript display (テキストがある限り表示) */}
+      {displayText && (
         <div className="mb-2 px-4 py-2.5 rounded-2xl bg-white/90 border border-slate-200 shadow-md backdrop-blur-sm">
           <div className="flex items-start gap-2">
-            <span className="text-slate-500 mt-0.5 animate-pulse text-xs">
-              &#x1F399;
+            <span className={`mt-0.5 text-xs ${isListening ? "text-slate-500 animate-pulse" : "text-orange-400"}`}>
+              {isListening ? "\u{1F399}" : "\u26A0\uFE0F"}
             </span>
             <p className="text-sm text-slate-800 leading-relaxed">
               <span>{transcript}</span>
@@ -132,7 +132,9 @@ export default function SpeechInputBar({
               className={`relative flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                 isListening
                   ? "bg-pink-500 text-white shadow-md"
-                  : "text-slate-600 hover:bg-white/50"
+                  : isProcessing || isSpeaking
+                    ? "text-slate-400"
+                    : "bg-orange-400 text-white shadow-md hover:bg-orange-500"
               } ${isProcessing || isSpeaking ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {micPulse && (
@@ -160,7 +162,11 @@ export default function SpeechInputBar({
 
       {/* Status indicator (ステータス表示) */}
       <div className="flex justify-center mt-2">
-        <span className="text-sm text-slate-500 font-medium tracking-wide">
+        <span className={`text-sm font-medium tracking-wide ${
+          !isListening && !isProcessing && !isSpeaking && isSupported
+            ? "text-orange-400 animate-pulse"
+            : "text-slate-500"
+        }`}>
           {!isSupported
             ? "このブラウザは音声認識に対応していません"
             : isProcessing
@@ -169,7 +175,7 @@ export default function SpeechInputBar({
                 ? "応答中..."
                 : isListening
                   ? "聞いています..."
-                  : ""}
+                  : "マイクが止まっています　タップで再開"}
         </span>
       </div>
     </div>

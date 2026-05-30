@@ -43,6 +43,7 @@ export function useSpeechRecognition(
 
   const clientRef = useRef<SpeechRecognitionClient | null>(null);
   const shouldRestartRef = useRef(false);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const client = new SpeechRecognitionClient(
@@ -61,7 +62,10 @@ export function useSpeechRecognition(
           }
         },
         onError: (err) => {
-          setError(err);
+          // no-speech / network は自動リスタートで無視、それ以外だけ表示
+          if (err.code !== "no-speech" && err.code !== "network") {
+            setError(err);
+          }
           setIsListening(false);
         },
         onStart: () => {
@@ -74,9 +78,10 @@ export function useSpeechRecognition(
 
           if (autoRestart && shouldRestartRef.current) {
             // 少し待ってから再起動（ブラウザのレートリミット回避）
-            setTimeout(() => {
-              if (shouldRestartRef.current) {
-                client.start();
+            restartTimerRef.current = setTimeout(() => {
+              restartTimerRef.current = null;
+              if (shouldRestartRef.current && clientRef.current) {
+                clientRef.current.start();
               }
             }, 300);
           }
@@ -88,6 +93,10 @@ export function useSpeechRecognition(
     setIsSupported(client.isSupported);
 
     return () => {
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
       client.dispose();
     };
   }, [language, continuous, interimResults, autoRestart]);

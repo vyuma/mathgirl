@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Rnd } from "react-rnd";
 import { usePanelStore } from "@/stores/panelStore";
 
-type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido";
+type PanelId = "text" | "note" | "log" | "blackboard" | "animation" | "slido" | "timer";
 
 const panelConfig: Record<
   PanelId,
@@ -64,6 +64,14 @@ const panelConfig: Record<
     borderColor: "border-purple-200/60",
     iconBg: "bg-purple-400",
     accentColor: "bg-purple-300",
+  },
+  timer: {
+    title: "タイマー",
+    icon: "⏱️",
+    gradient: "from-red-50/95 to-rose-50/95",
+    borderColor: "border-red-200/60",
+    iconBg: "bg-red-100",
+    accentColor: "bg-red-400",
   },
 };
 

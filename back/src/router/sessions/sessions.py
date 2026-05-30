@@ -8,6 +8,7 @@ from auth.dependencies import get_current_user
 from db.dependencies import get_db
 from db.models import User
 from db.repositories import SessionRepository, MessageRepository
+from db.repositories.user_repo import UserRepository
 from model.session import (
     SessionCreate,
     SessionResponse,
@@ -15,6 +16,7 @@ from model.session import (
     MessageResponse,
 )
 from service.session_summary import generate_session_summary
+from service.affinity import calculate_affinity_gain
 
 logger = logging.getLogger(__name__)
 
@@ -76,15 +78,23 @@ async def end_session(
     session = await repo.end_session(session_id)
 
     # タイトル未設定の場合、対話内容から自動要約を生成
+    msg_repo = MessageRepository(db)
     if not session.title:
         try:
-            msg_repo = MessageRepository(db)
             messages = await msg_repo.list_by_session(session_id)
             summary = await generate_session_summary(messages)
             if summary:
                 session = await repo.update_title(session_id, summary)
         except Exception:
             logger.exception("セッション要約の生成に失敗しました: %s", session_id)
+
+    # 親密度を更新
+    try:
+        messages = await msg_repo.list_by_session(session_id)
+        gain = calculate_affinity_gain(messages)
+        await UserRepository(db).add_affinity(user.user_id, gain)
+    except Exception:
+        logger.exception("親密度の更新に失敗しました: %s", session_id)
 
     return session
 

@@ -1,14 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSessionManager } from "@/hooks/useSessionManager";
+import { useAffinity } from "@/hooks/useAffinity";
+import AffinityGauge from "@/components/AffinityGauge";
 
 export default function TopBar() {
   const router = useRouter();
   const { status, sessionId, endSession, resetSession } = useSessionManager();
+  const { fetchAffinity } = useAffinity();
   const [showMenu, setShowMenu] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  useEffect(() => {
+    fetchAffinity();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEnd = async () => {
     const endedSessionId = sessionId;
@@ -22,6 +30,9 @@ export default function TopBar() {
 
   return (
     <>
+      <div className="absolute bottom-4 right-4 z-30">
+        <AffinityGauge />
+      </div>
       <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
         {status === "active" && (
           <button

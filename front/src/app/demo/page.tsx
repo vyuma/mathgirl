@@ -68,64 +68,11 @@ export default function MainPage() {
         <VRMChat ref={vrmRef} isSpeaking={isSpeaking} />
       </div>
 
-      {/* 黒板パネル */}
-      <PanelContainer panel="blackboard">
-        <BlackboardPanel />
-      </PanelContainer>
-
-      {/* アニメーションパネル */}
-      <PanelContainer panel="animation">
-        <AnimationPanel />
-      </PanelContainer>
-
-      {/* スライドパネル */}
-      <PanelContainer panel="slido">
-        <SlidoPanel />
-      </PanelContainer>
-
-      {/* タイマーパネル */}
-      <PanelContainer panel="timer">
-        <TimerPanel />
-      </PanelContainer>
-
-      {/* トップバー */}
-      <TopBar />
-
-      {/* パネル */}
-      <PanelContainer panel="text">
-        <TextPanel />
-      </PanelContainer>
-      <PanelContainer panel="note">
-        <NotePanel onShowToAlice={hasUserInteracted ? handleSend : undefined} />
-      </PanelContainer>
-      <PanelContainer panel="log">
-        <DialogLogPanel />
-      </PanelContainer>
-
-      {/* PC: アイコンバー */}
-      <IconBar />
-
-      {/* スマホ: タブバー */}
-      <MobileTabBar />
-
-      {/* セッション開始ダイアログ */}
-      <SessionStartDialog onStarted={handleStart} />
+      <div>
+        <VRMMotionDebugPanel vrmRef={vrmRef} />
+      </div>
 
 
-      {/* 音声入力バー */}
-      {hasUserInteracted && (
-        <SpeechInputBar
-          isListening={isListening}
-          transcript={transcript}
-          interimTranscript={interimTranscript}
-          isSupported={isSupported}
-          isProcessing={isProcessing}
-          isSpeaking={isSpeaking}
-          onSend={handleSend}
-          onStartListening={startListening}
-          onStopListening={stopListening}
-        />
-      )}
     </div>
   );
 }

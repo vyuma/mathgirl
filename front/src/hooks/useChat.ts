@@ -20,6 +20,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUnderstandingStore } from "@/stores/understandingStore";
 import { type EmotionCategory, useEmotionStore } from "@/stores/emotionStore";
 import { useSpeakerStore } from "@/stores/speakerStore";
+import { useTimerStore } from "@/stores/timerStore";
 
 export function useChat() {
   const { data: authSession } = useSession();
@@ -43,6 +44,8 @@ export function useChat() {
     setStyleIndex: setStoreStyleIndex,
   } = useSpeakerStore();
 
+  const isTimerWork = useTimerStore((s) => s.phase === "work");
+
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isTurnComplete, setIsTurnComplete] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
@@ -51,6 +54,7 @@ export function useChat() {
   const prolongedSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSendRef = useRef<(text?: string) => void>(() => {});
   const handleSilencePromptRef = useRef<() => void>(() => {});
+  const handleFocusWarningRef = useRef<() => void>(() => {});
 
   const { speakers, error: speakerError, getSpeakers } = useCoeiroink();
 
@@ -310,6 +314,69 @@ export function useChat() {
 
   handleSilencePromptRef.current = handleSilencePrompt;
 
+  // タイマー集中中にユーザーが話しかけてきたとき → 集中を促す（ログには追加しない）
+  const handleTimerFocusWarning = useCallback(() => {
+    if (!isConnected) return;
+    const speakerUuid = selectedSpeaker?.speaker_uuid ?? "";
+    const currentStyleId = selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
+    const chatMessages: ChatMessage[] = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      {
+        role: "user" as const,
+        content:
+          "（タイマー集中中にユーザーが話しかけてきました。集中を優しく促す一言を返してください。長い返答は不要です）",
+      },
+    ];
+    clearTranscript();
+    stopListening();
+    resetAudio();
+    setIsTurnComplete(false);
+    setIsSpeaking(true);
+    setIsProcessing(true);
+    sendChatRequest(chatMessages, speakerUuid, currentStyleId, undefined, sessionId || undefined);
+  }, [
+    isConnected,
+    selectedSpeaker,
+    selectedStyleIndex,
+    messages,
+    sessionId,
+    clearTranscript,
+    stopListening,
+    resetAudio,
+    sendChatRequest,
+    setIsProcessing,
+  ]);
+
+  handleFocusWarningRef.current = handleTimerFocusWarning;
+
+  // タイマーフェーズ切り替え時のアナウンス（page.tsx から呼ぶ）
+  const handleTimerAnnouncement = useCallback(
+    (msg: string) => {
+      if (!isConnected) return;
+      const speakerUuid = selectedSpeaker?.speaker_uuid ?? "";
+      const currentStyleId = selectedSpeaker?.styles[selectedStyleIndex]?.id ?? 0;
+      const chatMessages: ChatMessage[] = [
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user" as const, content: msg },
+      ];
+      resetAudio();
+      setIsTurnComplete(false);
+      setIsSpeaking(true);
+      setIsProcessing(true);
+      sendChatRequest(chatMessages, speakerUuid, currentStyleId, undefined, sessionId || undefined);
+    },
+    [
+      isConnected,
+      selectedSpeaker,
+      selectedStyleIndex,
+      messages,
+      sessionId,
+      resetAudio,
+      sendChatRequest,
+      setIsProcessing,
+    ],
+  );
+
   // 2秒間の無音検知 → 自動送信
   useEffect(() => {
     // 送信中・AI応答中・リスニングしていない場合はタイマー不要
@@ -331,7 +398,11 @@ export function useChat() {
     if (transcript.trim() && !interimTranscript) {
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
-        handleSendRef.current();
+        if (isTimerWork) {
+          handleFocusWarningRef.current();
+        } else {
+          handleSendRef.current();
+        }
       }, 2000);
     }
 
@@ -341,7 +412,7 @@ export function useChat() {
         silenceTimerRef.current = null;
       }
     };
-  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing]);
+  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing, isTimerWork]);
 
   // 8秒間まったく話していない → みくるが話しかける
   useEffect(() => {
@@ -350,8 +421,8 @@ export function useChat() {
       prolongedSilenceTimerRef.current = null;
     }
 
-    // 発話中・AI応答中・未接続・リスニングしていない場合はタイマー不要
-    if (isSpeaking || wsProcessing || !isListening || !isConnected) return;
+    // 発話中・AI応答中・未接続・リスニングしていない・タイマー作業中はタイマー不要
+    if (isSpeaking || wsProcessing || !isListening || !isConnected || isTimerWork) return;
 
     // transcript または interim がある（ユーザーが話している or 話した）→ タイマー不要
     if (transcript || interimTranscript) return;
@@ -368,7 +439,7 @@ export function useChat() {
         prolongedSilenceTimerRef.current = null;
       }
     };
-  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing, isConnected]);
+  }, [transcript, interimTranscript, isListening, isSpeaking, wsProcessing, isConnected, isTimerWork]);
 
   const handleStart = useCallback(() => {
     setHasUserInteracted(true);
@@ -395,6 +466,7 @@ export function useChat() {
     setSelectedStyleIndex: setStoreStyleIndex,
     handleSend,
     handleStart,
+    handleTimerAnnouncement,
     startListening,
     stopListening,
     connect,
