@@ -13,7 +13,7 @@ from .sentence_splitter import SentenceSplitter
 _llm_instance: ChatGoogleGenerativeAI | None = None
 
 
-def _get_llm(model_name: str = "gemini-2.5-flash-lite") -> ChatGoogleGenerativeAI:
+def _get_llm(model_name: str = "gemini-3.1-flash-lite-preview") -> ChatGoogleGenerativeAI:
     """LLMインスタンスを取得（シングルトン）"""
     global _llm_instance
     if _llm_instance is None:
@@ -32,7 +32,7 @@ def _get_llm(model_name: str = "gemini-2.5-flash-lite") -> ChatGoogleGenerativeA
 class AliceAgent:
     """アリス用AIエージェント（LangChain + Gemini）"""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash-lite"):
+    def __init__(self, model_name: str = "gemini-3.1-flash-lite-preview"):
         self.llm = _get_llm(model_name)
         self.sentence_splitter = SentenceSplitter()
 

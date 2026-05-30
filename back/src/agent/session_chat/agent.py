@@ -18,7 +18,7 @@ from .tools import SESSION_TOOLS, get_and_clear_tool_results
 _llm_instance: ChatGoogleGenerativeAI | None = None
 
 
-def _get_llm(model_name: str = "gemini-2.5-flash-lite") -> ChatGoogleGenerativeAI:
+def _get_llm(model_name: str = "gemini-3.1-flash-lite-preview") -> ChatGoogleGenerativeAI:
     global _llm_instance
     if _llm_instance is None:
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -42,7 +42,7 @@ _MATH_PATTERN = re.compile(
 class SessionAgent:
     """セッション用AIエージェント（LangChain Tool Calling）"""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash-lite"):
+    def __init__(self, model_name: str = "gemini-3.1-flash-lite-preview"):
         self.llm = _get_llm(model_name)
         self.llm_with_tools = self.llm.bind_tools(SESSION_TOOLS)
         self.sentence_splitter = SentenceSplitter()

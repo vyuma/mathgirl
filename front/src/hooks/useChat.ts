@@ -21,6 +21,7 @@ import { useUnderstandingStore } from "@/stores/understandingStore";
 import { type EmotionCategory, useEmotionStore } from "@/stores/emotionStore";
 import { useSpeakerStore } from "@/stores/speakerStore";
 import { useTimerStore } from "@/stores/timerStore";
+import { useSlidoStore } from "@/stores/slidoStore";
 
 export function useChat() {
   const { data: authSession } = useSession();
@@ -34,6 +35,7 @@ export function useChat() {
   const { sessionId } = useSessionStore();
   const { addFormula } = useBlackboardStore();
   const { startJob, updateProgress, completeJob, failJob } = useAnimationStore();
+  const { setResult: setSlidoResult } = useSlidoStore();
   const { setLevel, setPendingQuestion, setSuggestion, clearSuggestion } = useUnderstandingStore();
   const { setEmotion } = useEmotionStore();
 
@@ -175,6 +177,13 @@ export function useChat() {
         ? (data.emotion as EmotionCategory)
         : "neutral";
       setEmotion(emotion, data.intensity, data.reason);
+    },
+    onSlideComplete: (data) => {
+      setSlidoResult(data.slide_id, data.html, data.markdown);
+      const { panels, togglePanel } = usePanelStore.getState();
+      if (!panels.slido.visible) {
+        togglePanel("slido");
+      }
     },
   });
 

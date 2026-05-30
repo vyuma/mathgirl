@@ -10,9 +10,11 @@ from auth.dependencies import verify_ws_token
 from model.speak_chat.chat import (
     ChatRequest, ChatMessage, ErrorMessage, CompleteMessage,
     AnimationStarted, AnimationProgress, AnimationComplete, AnimationFailed,
+    SlideComplete,
 )
 from service.tts import StreamingTTS
 from service.animation import AnimationClient
+from service.slido import SlidoService
 from agent.session_chat import SessionAgent
 from db.engine import async_session_factory
 from db.repositories import MessageRepository, SessionRepository
@@ -156,6 +158,36 @@ async def _handle_animation_requests(
             await _send_ws_message(websocket, ws_lock, error_msg)
 
 
+async def _handle_slide_requests(
+    websocket: WebSocket,
+    ws_lock: asyncio.Lock,
+    requests: list[dict],
+    session_context: str | None,
+):
+    """スライドリクエストを処理してWebSocketで結果を送信"""
+    slido_service = SlidoService()
+    for req in requests:
+        try:
+            topic = req["topic"]
+            slide_count = req.get("slide_count", 8)
+            markdown, html = await slido_service.generate_slides(
+                topic=topic,
+                session_context=session_context,
+                slide_count=slide_count,
+            )
+            slide_id = uuid.uuid4().hex
+            msg = SlideComplete(
+                topic=topic,
+                slide_id=slide_id,
+                html=html,
+                markdown=markdown,
+            )
+            await _send_ws_message(websocket, ws_lock, msg)
+        except Exception as e:
+            error_msg = ErrorMessage(message=f"スライド生成エラー: {str(e)}")
+            await _send_ws_message(websocket, ws_lock, error_msg)
+
+
 @router.websocket("/ws/chat")
 async def chat_websocket(websocket: WebSocket):
     """
@@ -281,6 +313,13 @@ async def chat_websocket(websocket: WebSocket):
                 if anim_requests:
                     await _handle_animation_requests(
                         websocket, ws_lock, animation_client, anim_requests, bg_tasks
+                    )
+
+                # スライドリクエストを処理
+                slide_requests = streaming_tts.get_pending_slide_requests()
+                if slide_requests:
+                    await _handle_slide_requests(
+                        websocket, ws_lock, slide_requests, text_content
                     )
 
             except json.JSONDecodeError:

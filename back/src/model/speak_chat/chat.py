@@ -131,10 +131,20 @@ class AnimationFailed(BaseModel):
     error: str
 
 
+class SlideComplete(BaseModel):
+    """スライド生成完了メッセージ"""
+    type: Literal["slide_complete"] = "slide_complete"
+    topic: str
+    slide_id: str
+    html: str
+    markdown: str
+
+
 # Union type for all WebSocket messages
 WSMessage = (
     TextChunk | AudioChunk | CompleteMessage | ErrorMessage
     | BlackboardUpdate | SuggestOperation | HintMessage
     | SocraticQuestion | UnderstandingUpdate | EmotionUpdate
     | AnimationStarted | AnimationProgress | AnimationComplete | AnimationFailed
+    | SlideComplete
 )

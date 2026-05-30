@@ -110,6 +110,14 @@ export type AnimationFailed = {
   error: string;
 };
 
+export type SlideComplete = {
+  type: "slide_complete";
+  topic: string;
+  slide_id: string;
+  html: string;
+  markdown: string;
+};
+
 export type WSMessage =
   | TextChunk
   | AudioChunk
@@ -124,7 +132,8 @@ export type WSMessage =
   | AnimationStarted
   | AnimationProgress
   | AnimationComplete
-  | AnimationFailed;
+  | AnimationFailed
+  | SlideComplete;
 
 // 接続状態
 export type ConnectionState =
